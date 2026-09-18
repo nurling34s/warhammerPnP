@@ -6,10 +6,10 @@ extends RefCounted
 
 signal phase_completed
 
-var turn_manager
+var turn_manager: TurnManager
 
 
-func _init(tm) -> void:
+func _init(tm: TurnManager) -> void:
 	turn_manager = tm
 
 

@@ -12,7 +12,7 @@ func get_id() -> StringName:
 
 
 ## Ordered list of GamePhase instances for one player's turn.
-func build_phase_sequence(turn_manager) -> Array:
+func build_phase_sequence(turn_manager: TurnManager) -> Array[GamePhase]:
 	assert(false, "RulesetProvider.build_phase_sequence() must be overridden")
 	return []
 
