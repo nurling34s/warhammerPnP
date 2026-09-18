@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="FortyKUnitStats" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://core/models/forty_k_unit_stats.gd" id="1"]
+[ext_resource type="Resource" path="res://data/forty_k/weapons/test_imperium_rifle.tres" id="2"]
+
+[resource]
+script = ExtResource("1")
+unit_id = &"forty_k.test.imperium_squad"
+display_name = "Test Imperium Squad"
+faction = &"test_imperium"
+keywords = Array[StringName]([&"IMPERIUM", &"INFANTRY"])
+models_per_unit = 5
+move_inches = 6.0
+health_per_model = 2
+save = 3
+points_cost = 100
+weapons = Array[Resource]([ExtResource("2")])
+base_size_mm = 32.0
+toughness = 4
+leadership = 6
+weapon_skill = 3
+ballistic_skill = 3
+invulnerable_save = 0
+objective_control = 2
+faction_abilities = Array[StringName]([])

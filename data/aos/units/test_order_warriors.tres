@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="AoSUnitStats" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://core/models/aos_unit_stats.gd" id="1"]
+[ext_resource type="Resource" path="res://data/aos/weapons/test_order_blade.tres" id="2"]
+
+[resource]
+script = ExtResource("1")
+unit_id = &"aos.test.order_warriors"
+display_name = "Test Order Warriors"
+faction = &"test_order"
+keywords = Array[StringName]([&"ORDER", &"INFANTRY"])
+models_per_unit = 5
+move_inches = 5.0
+health_per_model = 2
+save = 4
+points_cost = 100
+weapons = Array[Resource]([ExtResource("2")])
+base_size_mm = 32.0
+bravery = 6
+control_score = 1
+rend_default = 0
+ward_save = 0
+battle_traits = Array[StringName]([])
