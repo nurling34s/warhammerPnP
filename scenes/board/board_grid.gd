@@ -3,9 +3,9 @@
 ## table (AoS4/40k both commonly play on this or a 44"x30"/44"x90" variant).
 extends Node2D
 
-@export var table_width_inches: float = 60.0
-@export var table_height_inches: float = 44.0
-@export var pixels_per_inch: float = 10.0
+@export var table_width_inches: float = BoardScale.TABLE_WIDTH_INCHES
+@export var table_height_inches: float = BoardScale.TABLE_HEIGHT_INCHES
+@export var pixels_per_inch: float = BoardScale.PIXELS_PER_INCH
 
 
 func _draw() -> void:
