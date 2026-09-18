@@ -62,6 +62,23 @@ func check_unit_coherency(unit) -> bool:
 	return true
 
 
+## Engagement-range distance in inches for this ruleset (AoS4: 3" from the
+## unit's models; 40k 11th ed: 1" — exact thresholds to verify against each
+## edition's current core rulebook before real army data is entered).
+func get_engagement_range_inches() -> float:
+	assert(false, "RulesetProvider.get_engagement_range_inches() must be overridden")
+	return 0.0
+
+
+## True if `unit` is currently within engagement range of any enemy unit in
+## `all_units`. Units are treated as single points (their position_inches)
+## for Phase 2 — refine to per-model distances only once per-model positions
+## exist (deferred alongside detailed wound tracking).
+func is_in_engagement_range(unit, all_units: Array) -> bool:
+	assert(false, "RulesetProvider.is_in_engagement_range() must be overridden")
+	return false
+
+
 ## The UnitStats subclass this ruleset expects, for data-loader validation.
 func get_unit_stats_script() -> Script:
 	assert(false, "RulesetProvider.get_unit_stats_script() must be overridden")
