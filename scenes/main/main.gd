@@ -51,6 +51,23 @@ func _setup_board() -> void:
 	deployment_overlay = preload("res://scenes/board/DeploymentZoneOverlay.tscn").instantiate()
 	board.add_child(deployment_overlay)
 
+	_spawn_placeholder_terrain()
+
+
+## One impassable terrain piece in the middle of the table, just to prove
+## out blocks_movement end-to-end. Scenario-driven terrain layouts are
+## later work.
+func _spawn_placeholder_terrain() -> void:
+	var piece := TerrainPiece.new()
+	piece.terrain_id = &"test_ruins"
+	piece.footprint_inches = Rect2(25, 17, 10, 10)
+	piece.blocks_movement = true
+	turn_manager.match_state.terrain.append(piece)
+
+	var view: TerrainPieceView = preload("res://scenes/board/TerrainPieceView.tscn").instantiate()
+	board.add_child(view)
+	view.apply_piece(piece)
+
 
 func _begin_deployment(ruleset_id: StringName) -> void:
 	var zone0 := DeploymentZone.new()

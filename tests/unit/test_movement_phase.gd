@@ -62,6 +62,40 @@ func test_on_enter_resets_turn_flags_for_active_players_units() -> void:
 	assert_false(unit.has_moved)
 
 
+func test_move_into_impassable_terrain_is_rejected_and_does_not_mutate() -> void:
+	var ruleset := AoSRuleset.new()
+	var tm := TurnManager.new(ruleset)
+	var piece := TerrainPiece.new()
+	piece.footprint_inches = Rect2(2, 2, 4, 4)
+	piece.blocks_movement = true
+	tm.match_state.terrain.append(piece)
+
+	var phase := AoSMovementPhase.new(tm)
+	var unit := _make_unit(0, Vector2(0, 0), 5.0)
+
+	var result := phase.try_move_unit(unit, Vector2(3, 3), [unit])  # inside the 2,2 - 6,6 footprint
+
+	assert_false(result.ok)
+	assert_eq(result.reason, "blocked_by_terrain")
+	assert_eq(unit.position_inches, Vector2(0, 0))
+
+
+func test_move_near_but_outside_impassable_terrain_succeeds() -> void:
+	var ruleset := AoSRuleset.new()
+	var tm := TurnManager.new(ruleset)
+	var piece := TerrainPiece.new()
+	piece.footprint_inches = Rect2(2, 2, 4, 4)
+	piece.blocks_movement = true
+	tm.match_state.terrain.append(piece)
+
+	var phase := AoSMovementPhase.new(tm)
+	var unit := _make_unit(0, Vector2(0, 0), 5.0)
+
+	var result := phase.try_move_unit(unit, Vector2(0, 4), [unit])  # outside the footprint
+
+	assert_true(result.ok)
+
+
 func test_get_phase_name_is_movement_phase() -> void:
 	var ruleset := AoSRuleset.new()
 	var tm := TurnManager.new(ruleset)
