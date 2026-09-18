@@ -1,6 +1,9 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=4 format=3]
 
 [ext_resource type="Script" path="res://scenes/unit/unit_token.gd" id="1"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_1"]
+size = Vector2(40, 40)
 
 [node name="UnitToken" type="Node2D"]
 script = ExtResource("1")
@@ -15,3 +18,9 @@ position = Vector2(-40, -34)
 size = Vector2(80, 16)
 text = "Unit"
 horizontal_alignment = 1
+
+[node name="ClickArea" type="Area2D" parent="."]
+input_pickable = true
+
+[node name="Shape" type="CollisionShape2D" parent="ClickArea"]
+shape = SubResource("RectangleShape2D_1")

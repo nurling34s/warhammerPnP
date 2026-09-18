@@ -1,7 +1,9 @@
 ## Boots a match: lets the player pick a ruleset, runs a simple click-to-
 ## deploy step for one placeholder unit per side within its zone, then
-## starts the phase HUD. No drag-to-move or per-phase actions yet — that's
-## later Phase 2 work.
+## starts the phase HUD. During Movement Phase the active player's token
+## can be dragged (green/red tint from core/'s can_move_to, committed via
+## try_move_unit on release). Terrain and the measuring tape are later
+## Phase 2 work.
 extends Node
 
 @onready var ruleset_select: Control = $UI/RulesetSelect
@@ -18,6 +20,7 @@ var turn_manager: TurnManager
 var board: Node2D
 var deployment_overlay: DeploymentZoneOverlay
 var deployment_manager: DeploymentManager
+var current_phase: GamePhase
 
 
 func _ready() -> void:
@@ -101,6 +104,8 @@ func _on_board_clicked(position_inches: Vector2) -> void:
 		var token: UnitToken = preload("res://scenes/unit/UnitToken.tscn").instantiate()
 		board.add_child(token)
 		token.apply_instance(unit)
+		token.drag_moved.connect(_on_token_drag_moved.bind(token))
+		token.drag_ended.connect(_on_token_drag_ended.bind(token))
 		_update_deployment_label()
 
 
@@ -110,7 +115,26 @@ func _on_deployment_complete() -> void:
 	turn_manager.start_match()
 
 
+func _on_token_drag_moved(position_inches: Vector2, token: UnitToken) -> void:
+	token.set_drag_feedback(_can_drag_move(token, position_inches))
+
+
+func _on_token_drag_ended(position_inches: Vector2, token: UnitToken) -> void:
+	token.clear_drag_feedback()
+	if current_phase is MovementPhaseBase and token.unit_instance.owner_player == turn_manager.active_player:
+		current_phase.try_move_unit(token.unit_instance, position_inches, turn_manager.match_state.units)
+	token.sync_position_from_instance()
+
+
+func _can_drag_move(token: UnitToken, position_inches: Vector2) -> bool:
+	if not (current_phase is MovementPhaseBase) or token.unit_instance.owner_player != turn_manager.active_player:
+		return false
+	var result: Dictionary = current_phase.can_move_to(token.unit_instance, position_inches, turn_manager.match_state.units)
+	return result.ok
+
+
 func _on_phase_changed(phase: GamePhase) -> void:
+	current_phase = phase
 	EventBus.phase_changed.emit(phase)
 	phase_label.text = "Player %d — Round %d — %s" % [
 		turn_manager.active_player + 1, turn_manager.battle_round, phase.get_phase_name()
