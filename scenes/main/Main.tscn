@@ -24,6 +24,15 @@ text = "Age of Sigmar (4th ed)"
 [node name="FortyKButton" type="Button" parent="UI/RulesetSelect"]
 text = "Warhammer 40,000 (11th ed)"
 
+[node name="DeploymentPanel" type="VBoxContainer" parent="UI"]
+offset_left = 20.0
+offset_top = 20.0
+offset_right = 520.0
+offset_bottom = 60.0
+
+[node name="DeploymentLabel" type="Label" parent="UI/DeploymentPanel"]
+text = "Deployment"
+
 [node name="HUD" type="VBoxContainer" parent="UI"]
 offset_left = 20.0
 offset_top = 20.0
