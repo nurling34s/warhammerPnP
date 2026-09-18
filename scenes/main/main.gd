@@ -44,10 +44,14 @@ func _spawn_placeholder_unit(ruleset_id: StringName) -> void:
 		stats_path = "res://data/forty_k/units/test_imperium_squad.tres"
 	var stats: UnitStats = load(stats_path)
 
+	var instance := UnitInstance.new(stats, 0)
+	instance.position_inches = Vector2(15, 12)
+	instance.has_deployed = true  # Phase 2 deployment step will replace this placeholder
+	turn_manager.match_state.units.append(instance)
+
 	var token: UnitToken = preload("res://scenes/unit/UnitToken.tscn").instantiate()
 	board.add_child(token)
-	token.apply_stats(stats)
-	token.position = Vector2(150, 120)
+	token.apply_instance(instance)
 
 
 func _on_phase_changed(phase: GamePhase) -> void:
