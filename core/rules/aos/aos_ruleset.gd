@@ -13,18 +13,14 @@ func get_id() -> StringName:
 
 
 func build_phase_sequence(turn_manager: TurnManager) -> Array[GamePhase]:
-	var names: Array[StringName] = [
-		&"Hero Phase",
-		&"Movement Phase",
-		&"Shooting Phase",
-		&"Charge Phase",
-		&"Combat Phase",
-		&"End Phase",
+	return [
+		NamedPlaceholderPhase.new(turn_manager, &"Hero Phase"),
+		AoSMovementPhase.new(turn_manager),
+		NamedPlaceholderPhase.new(turn_manager, &"Shooting Phase"),
+		NamedPlaceholderPhase.new(turn_manager, &"Charge Phase"),
+		NamedPlaceholderPhase.new(turn_manager, &"Combat Phase"),
+		NamedPlaceholderPhase.new(turn_manager, &"End Phase"),
 	]
-	var phases: Array[GamePhase] = []
-	for phase_name in names:
-		phases.append(NamedPlaceholderPhase.new(turn_manager, phase_name))
-	return phases
 
 
 func get_unit_stats_script() -> Script:
