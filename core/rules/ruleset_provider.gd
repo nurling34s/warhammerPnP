@@ -44,8 +44,10 @@ func allocate_wounds(unit, damage_events: Array) -> Array:
 	return []
 
 
-## Charge distance roll (2D6" in both games; terrain/end-point rules differ per ruleset).
-func roll_charge_distance(unit, dice) -> int:
+## Charge distance roll. 2D6" in both games — the roll itself is identical;
+## terrain/end-point rules (how the charge resolves against that distance)
+## differ per ruleset and are later work.
+func roll_charge_distance(unit, dice: DiceRoller) -> int:
 	assert(false, "RulesetProvider.roll_charge_distance() must be overridden")
 	return 0
 

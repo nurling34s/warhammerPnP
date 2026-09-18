@@ -33,6 +33,12 @@ func get_engagement_range_inches() -> float:
 	return 3.0
 
 
+## 2D6" charge roll. End-of-charge/terrain resolution is later work.
+func roll_charge_distance(_unit: UnitInstance, dice: DiceRoller) -> int:
+	var rolls := dice.roll(2, 6)
+	return rolls[0] + rolls[1]
+
+
 func is_in_engagement_range(unit: UnitInstance, all_units: Array) -> bool:
 	var range_inches := get_engagement_range_inches()
 	for other in all_units:

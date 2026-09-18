@@ -39,5 +39,13 @@ func try_move_unit(unit: UnitInstance, destination_inches: Vector2, all_units: A
 	return result
 
 
-func _allows_leaving_engagement(_unit: UnitInstance) -> bool:
-	return false
+## Declares a unit is Falling Back, letting it leave engagement range this
+## Movement Phase. Forfeiting later shooting/charging for the turn is a
+## Phase 3 concern (those phases don't exist yet) — this only unblocks the
+## movement-distance check itself.
+func declare_fall_back(unit: UnitInstance) -> void:
+	unit.has_fallen_back = true
+
+
+func _allows_leaving_engagement(unit: UnitInstance) -> bool:
+	return unit.has_fallen_back
