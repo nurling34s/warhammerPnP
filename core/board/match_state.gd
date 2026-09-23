@@ -8,6 +8,7 @@ extends RefCounted
 
 var units: Array[UnitInstance] = []
 var terrain: Array[TerrainPiece] = []
+var combat_log: CombatLog = CombatLog.new()
 
 
 func units_for_player(player: int) -> Array[UnitInstance]:
