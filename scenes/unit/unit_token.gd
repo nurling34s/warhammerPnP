@@ -34,9 +34,17 @@ func apply_instance(instance: UnitInstance) -> void:
 	var size_px: float = maxf(stats.base_size_mm / 2.0, 16.0)
 	marker.size = Vector2(size_px, size_px)
 	marker.position = -marker.size / 2.0
-	name_label.text = stats.display_name
 	name_label.position = Vector2(-40, marker.position.y - 18)
+	refresh_label()
 	sync_position_from_instance()
+
+
+## Shows the unit's name plus a live models-remaining count. Called after
+## apply_instance() and again whenever the unit takes damage. A full stats
+## card / wounds bar is Phase 4 scope — this is the minimal Phase 3 readout.
+func refresh_label() -> void:
+	if unit_instance:
+		name_label.text = "%s (%d)" % [unit_instance.stats.display_name, unit_instance.models_alive]
 
 
 ## Moves this token to match unit_instance.position_inches (converted to

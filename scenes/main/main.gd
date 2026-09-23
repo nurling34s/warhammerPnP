@@ -2,8 +2,10 @@
 ## deploy step for one placeholder unit per side within its zone, then
 ## starts the phase HUD. During Movement Phase the active player's token
 ## can be dragged (green/red tint from core/'s can_move_to, committed via
-## try_move_unit on release). Terrain and the measuring tape are later
-## Phase 2 work.
+## try_move_unit on release). During Shooting Phase, click your own
+## not-yet-shot unit, then click an enemy token to declare an attack
+## (range/LoS validated in core/, first ranged weapon on the unit is used
+## automatically — a weapon-choice UI is later work).
 extends Node
 
 @onready var ruleset_select: Control = $UI/RulesetSelect
@@ -21,6 +23,9 @@ var board: Node2D
 var deployment_overlay: DeploymentZoneOverlay
 var deployment_manager: DeploymentManager
 var current_phase: GamePhase
+var attack_resolver: AttackResolver
+var tokens: Array[UnitToken] = []
+var shoot_selected_attacker: UnitInstance = null
 
 
 func _ready() -> void:
@@ -38,6 +43,7 @@ func _start_match(ruleset_id: StringName) -> void:
 	turn_manager = TurnManager.new(RulesetRegistry.active)
 	turn_manager.phase_machine.phase_changed.connect(_on_phase_changed)
 	turn_manager.turn_started.connect(_on_turn_started)
+	attack_resolver = AttackResolver.new(RulesetRegistry.active, DiceRoller.new(), turn_manager.match_state.combat_log)
 
 	_setup_board()
 	_begin_deployment(ruleset_id)
@@ -113,9 +119,13 @@ func _update_deployment_label() -> void:
 
 
 func _on_board_clicked(position_inches: Vector2) -> void:
-	if not deployment_manager or deployment_manager.pending_units.is_empty():
-		return
+	if deployment_manager and not deployment_manager.pending_units.is_empty():
+		_handle_deployment_click(position_inches)
+	elif current_phase is ShootingPhaseBase:
+		_handle_shooting_click(position_inches)
 
+
+func _handle_deployment_click(position_inches: Vector2) -> void:
 	var unit: UnitInstance = deployment_manager.pending_units[0]
 	if deployment_manager.place_unit(unit, position_inches):
 		var token: UnitToken = preload("res://scenes/unit/UnitToken.tscn").instantiate()
@@ -123,7 +133,46 @@ func _on_board_clicked(position_inches: Vector2) -> void:
 		token.apply_instance(unit)
 		token.drag_moved.connect(_on_token_drag_moved.bind(token))
 		token.drag_ended.connect(_on_token_drag_ended.bind(token))
+		tokens.append(token)
 		_update_deployment_label()
+
+
+## Two-click flow: first click picks your own not-yet-shot unit, second
+## click picks an enemy token to shoot at with its first ranged weapon.
+func _handle_shooting_click(position_inches: Vector2) -> void:
+	var clicked_token := _find_token_at(position_inches)
+	if not clicked_token:
+		return
+
+	if shoot_selected_attacker == null:
+		if clicked_token.unit_instance.owner_player == turn_manager.active_player and not clicked_token.unit_instance.has_shot:
+			shoot_selected_attacker = clicked_token.unit_instance
+		return
+
+	if clicked_token.unit_instance.owner_player != shoot_selected_attacker.owner_player:
+		var weapon := _find_ranged_weapon(shoot_selected_attacker.stats)
+		if weapon:
+			var result: Dictionary = current_phase.declare_shoot(
+				shoot_selected_attacker, weapon, clicked_token.unit_instance,
+				turn_manager.match_state.terrain, attack_resolver
+			)
+			if result.ok:
+				clicked_token.refresh_label()
+	shoot_selected_attacker = null
+
+
+func _find_token_at(position_inches: Vector2) -> UnitToken:
+	for token in tokens:
+		if token.unit_instance and token.unit_instance.position_inches.distance_to(position_inches) <= 2.0:
+			return token
+	return null
+
+
+func _find_ranged_weapon(stats: UnitStats) -> WeaponProfile:
+	for weapon in stats.weapons:
+		if weapon.range_inches > 0.0:
+			return weapon
+	return null
 
 
 func _on_deployment_complete() -> void:
