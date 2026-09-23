@@ -16,16 +16,14 @@ func on_enter() -> void:
 
 ## Pure check — does not mutate anything. Returns {"ok": bool, "reason": String}.
 func can_move_to(unit: UnitInstance, destination_inches: Vector2, all_units: Array) -> Dictionary:
-	var distance: float = unit.position_inches.distance_to(destination_inches)
-	if distance > unit.remaining_move_inches():
-		return {"ok": false, "reason": "exceeds_move"}
+	var basic := MovementMath.validate_move(
+		unit.position_inches, destination_inches, unit.remaining_move_inches(), turn_manager.match_state.terrain
+	)
+	if not basic.ok:
+		return basic
 
 	if turn_manager.ruleset.is_in_engagement_range(unit, all_units) and not _allows_leaving_engagement(unit):
 		return {"ok": false, "reason": "engaged_must_fall_back"}
-
-	for piece in turn_manager.match_state.terrain:
-		if piece.blocks_movement and piece.footprint_inches.has_point(destination_inches):
-			return {"ok": false, "reason": "blocked_by_terrain"}
 
 	return {"ok": true, "reason": ""}
 
