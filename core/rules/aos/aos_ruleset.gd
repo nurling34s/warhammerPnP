@@ -18,7 +18,7 @@ func build_phase_sequence(turn_manager: TurnManager) -> Array[GamePhase]:
 		AoSMovementPhase.new(turn_manager),
 		AoSShootingPhase.new(turn_manager),
 		NamedPlaceholderPhase.new(turn_manager, &"Charge Phase"),
-		NamedPlaceholderPhase.new(turn_manager, &"Combat Phase"),
+		AoSFightPhase.new(turn_manager),
 		NamedPlaceholderPhase.new(turn_manager, &"End Phase"),
 	]
 

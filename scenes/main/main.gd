@@ -2,10 +2,10 @@
 ## deploy step for one placeholder unit per side within its zone, then
 ## starts the phase HUD. During Movement Phase the active player's token
 ## can be dragged (green/red tint from core/'s can_move_to, committed via
-## try_move_unit on release). During Shooting Phase, click your own
-## not-yet-shot unit, then click an enemy token to declare an attack
-## (range/LoS validated in core/, first ranged weapon on the unit is used
-## automatically — a weapon-choice UI is later work).
+## try_move_unit on release). During Shooting/Combat/Fight Phase, click your
+## own not-yet-acted unit, then click an enemy token to declare an attack
+## (range/LoS/engagement validated in core/, first ranged/melee weapon on
+## the unit is used automatically — a weapon-choice UI is later work).
 extends Node
 
 @onready var ruleset_select: Control = $UI/RulesetSelect
@@ -26,6 +26,7 @@ var current_phase: GamePhase
 var attack_resolver: AttackResolver
 var tokens: Array[UnitToken] = []
 var shoot_selected_attacker: UnitInstance = null
+var fight_selected_attacker: UnitInstance = null
 
 
 func _ready() -> void:
@@ -123,6 +124,8 @@ func _on_board_clicked(position_inches: Vector2) -> void:
 		_handle_deployment_click(position_inches)
 	elif current_phase is ShootingPhaseBase:
 		_handle_shooting_click(position_inches)
+	elif current_phase is FightPhaseBase:
+		_handle_fight_click(position_inches)
 
 
 func _handle_deployment_click(position_inches: Vector2) -> void:
@@ -159,6 +162,46 @@ func _handle_shooting_click(position_inches: Vector2) -> void:
 			if result.ok:
 				clicked_token.refresh_label()
 	shoot_selected_attacker = null
+
+
+## Two-click flow: first click picks your own engaged, not-yet-fought unit,
+## second click picks an enemy token in engagement range to fight with its
+## first melee weapon. Does not enforce the activation queue's chargers-
+## first/alternating order — FightPhaseBase.next_to_fight()/activation_queue()
+## are available for a stricter UI later.
+func _handle_fight_click(position_inches: Vector2) -> void:
+	var clicked_token := _find_token_at(position_inches)
+	if not clicked_token:
+		return
+
+	if fight_selected_attacker == null:
+		if clicked_token.unit_instance.owner_player == turn_manager.active_player and not clicked_token.unit_instance.has_fought:
+			fight_selected_attacker = clicked_token.unit_instance
+		return
+
+	if clicked_token.unit_instance.owner_player != fight_selected_attacker.owner_player:
+		var weapon := _find_melee_weapon(fight_selected_attacker.stats)
+		if weapon:
+			current_phase.declare_pile_in(fight_selected_attacker, clicked_token.unit_instance)
+			_find_token_for_instance(fight_selected_attacker).sync_position_from_instance()
+			var result: Dictionary = current_phase.declare_fight(fight_selected_attacker, weapon, clicked_token.unit_instance, attack_resolver)
+			if result.ok:
+				clicked_token.refresh_label()
+	fight_selected_attacker = null
+
+
+func _find_token_for_instance(instance: UnitInstance) -> UnitToken:
+	for token in tokens:
+		if token.unit_instance == instance:
+			return token
+	return null
+
+
+func _find_melee_weapon(stats: UnitStats) -> WeaponProfile:
+	for weapon in stats.weapons:
+		if weapon.range_inches == 0.0:
+			return weapon
+	return null
 
 
 func _find_token_at(position_inches: Vector2) -> UnitToken:

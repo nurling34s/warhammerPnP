@@ -27,6 +27,7 @@ var has_run_or_advanced: bool = false
 var has_charged: bool = false
 var has_fallen_back: bool = false
 var has_shot: bool = false
+var has_fought: bool = false
 
 
 func _init(unit_stats: UnitStats, player: int) -> void:
@@ -54,6 +55,7 @@ func reset_turn_flags() -> void:
 	has_charged = false
 	has_fallen_back = false
 	has_shot = false
+	has_fought = false
 	models_lost_this_turn = 0
 	battleshock_failed_this_turn = false
 
