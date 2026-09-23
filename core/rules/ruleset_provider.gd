@@ -57,9 +57,10 @@ func roll_charge_distance(unit, dice: DiceRoller) -> int:
 
 
 ## Bravery/Battleshock (AoS4) or Leadership/Battle-shock (40k 11th ed) check.
-func resolve_battleshock(unit, models_lost_this_turn: int, dice):
+## Returns true if the unit passes (no consequence), false if it fails.
+func resolve_battleshock(unit: UnitInstance, models_lost_this_turn: int, dice: DiceRoller) -> bool:
 	assert(false, "RulesetProvider.resolve_battleshock() must be overridden")
-	return null
+	return true
 
 
 ## Unit coherency check between models of the same unit.

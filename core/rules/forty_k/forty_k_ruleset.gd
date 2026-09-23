@@ -20,7 +20,7 @@ func build_phase_sequence(turn_manager: TurnManager) -> Array[GamePhase]:
 		FortyKShootingPhase.new(turn_manager),
 		NamedPlaceholderPhase.new(turn_manager, &"Charge Phase"),
 		FortyKFightPhase.new(turn_manager),
-		NamedPlaceholderPhase.new(turn_manager, &"Battle-shock Phase"),
+		FortyKBattleShockPhase.new(turn_manager),
 	]
 
 
@@ -98,6 +98,16 @@ func resolve_save(target, weapon: WeaponProfile, wounds: RollResult, _ctx: Dicti
 
 	var chain := ModifierChain.new()
 	return chain.apply(dice, save_target, wounds.successes)
+
+
+## 2D6 vs Leadership; fails if the total exceeds Leadership. No test is
+## needed (auto-pass) if the unit lost no models this turn.
+func resolve_battleshock(unit: UnitInstance, models_lost_this_turn: int, dice: DiceRoller) -> bool:
+	if models_lost_this_turn <= 0:
+		return true
+	var stats: FortyKUnitStats = unit.stats
+	var rolls := dice.roll(2, 6)
+	return rolls[0] + rolls[1] <= stats.leadership
 
 
 ## Rolls each failed save's Damage characteristic and applies it to the

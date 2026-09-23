@@ -19,7 +19,7 @@ func build_phase_sequence(turn_manager: TurnManager) -> Array[GamePhase]:
 		AoSShootingPhase.new(turn_manager),
 		NamedPlaceholderPhase.new(turn_manager, &"Charge Phase"),
 		AoSFightPhase.new(turn_manager),
-		NamedPlaceholderPhase.new(turn_manager, &"End Phase"),
+		AoSEndPhase.new(turn_manager),
 	]
 
 
@@ -92,6 +92,16 @@ func resolve_save(target, weapon: WeaponProfile, wounds: RollResult, _ctx: Dicti
 	combined.modified_rolls = armor_result.modified_rolls
 	combined.critical_successes = armor_result.critical_successes
 	return combined
+
+
+## D6 + models_lost_this_turn vs Bravery; fails if the total exceeds Bravery.
+## No test is needed (auto-pass) if the unit lost no models this turn.
+func resolve_battleshock(unit: UnitInstance, models_lost_this_turn: int, dice: DiceRoller) -> bool:
+	if models_lost_this_turn <= 0:
+		return true
+	var stats: AoSUnitStats = unit.stats
+	var total: int = dice.roll_single(6) + models_lost_this_turn
+	return total <= stats.bravery
 
 
 ## Rolls each failed save's Damage characteristic (weapon.strength_or_damage
