@@ -47,3 +47,60 @@ func is_in_engagement_range(unit: UnitInstance, all_units: Array) -> bool:
 		if unit.position_inches.distance_to(other.position_inches) <= range_inches:
 			return true
 	return false
+
+
+## AoS4 has no separate to-wound roll: a weapon's Rend hits the Save
+## directly and Damage applies right after a failed save. To-hit is a flat
+## roll against the weapon's to_hit_stat.
+func resolve_to_hit(_attacker, weapon: WeaponProfile, _target, ctx: Dictionary, dice: DiceRoller) -> RollResult:
+	var chain := ModifierChain.new()
+	chain.flat_modifier = int(ctx.get("to_hit_modifier", 0))
+	var count: int = int(ctx.get("attack_count", 1))
+	return chain.apply(dice, weapon.to_hit_stat, count)
+
+
+## Pass-through — see class doc. Keeps the AttackResolver pipeline the same
+## shape across both rulesets.
+func resolve_to_wound(_weapon, _target, hits: RollResult, _ctx: Dictionary, _dice: DiceRoller) -> RollResult:
+	return hits
+
+
+## Armor save modified by Rend (-ap_or_rend), plus a second, unmodified Ward
+## save pass over whatever the armor save didn't stop, if the unit has one.
+## The returned RollResult's `successes` is the combined total saved
+## (armor + ward) — allocate_wounds treats `wounds.successes - save.successes`
+## as the number of failed saves needing damage.
+func resolve_save(target, weapon: WeaponProfile, wounds: RollResult, _ctx: Dictionary, dice: DiceRoller) -> RollResult:
+	var stats: AoSUnitStats = target.stats
+	var armor_chain := ModifierChain.new()
+	armor_chain.flat_modifier = -weapon.ap_or_rend
+	var armor_result: RollResult = armor_chain.apply(dice, stats.save, wounds.successes)
+
+	var total_saved: int = armor_result.successes
+	if stats.ward_save > 0:
+		var failed_armor: int = wounds.successes - armor_result.successes
+		if failed_armor > 0:
+			var ward_chain := ModifierChain.new()
+			var ward_result: RollResult = ward_chain.apply(dice, stats.ward_save, failed_armor)
+			total_saved += ward_result.successes
+
+	var combined := RollResult.new()
+	combined.target_number = stats.save
+	combined.successes = total_saved
+	combined.raw_rolls = armor_result.raw_rolls
+	combined.final_rolls = armor_result.final_rolls
+	combined.modified_rolls = armor_result.modified_rolls
+	combined.critical_successes = armor_result.critical_successes
+	return combined
+
+
+## Rolls each failed save's Damage characteristic (weapon.strength_or_damage
+## is AoS4's Damage char) and applies it to the target, one model at a time.
+func allocate_wounds(unit: UnitInstance, damage_events: Array, dice: DiceRoller) -> Array:
+	var results: Array = []
+	for event in damage_events:
+		var weapon: WeaponProfile = event.source_weapon
+		var dmg: int = DiceNotation.roll(weapon.strength_or_damage, dice)
+		var leftover: int = unit.apply_damage_to_next_model(dmg)
+		results.append({"damage_applied": dmg - leftover})
+	return results
