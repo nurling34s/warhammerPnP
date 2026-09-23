@@ -18,28 +18,32 @@ func build_phase_sequence(turn_manager: TurnManager) -> Array[GamePhase]:
 
 
 ## To-hit roll. attacker/target are UnitInstance, weapon is a WeaponProfile.
-## ctx carries board-derived modifiers (range, cover, buffs/debuffs in effect).
-func resolve_to_hit(attacker, weapon, target, ctx: Dictionary):
+## ctx carries board-derived modifiers (range, cover, buffs/debuffs in effect,
+## and "attack_count": int — the number of attacks already rolled by the
+## caller via DiceNotation, since attack-count rolling is ruleset-agnostic).
+func resolve_to_hit(attacker, weapon, target, ctx: Dictionary, dice: DiceRoller) -> RollResult:
 	assert(false, "RulesetProvider.resolve_to_hit() must be overridden")
 	return null
 
 
 ## To-wound roll. AoS resolves this as a pass-through (no separate to-wound step);
 ## 40k resolves Strength vs Toughness here.
-func resolve_to_wound(weapon, target, hits, ctx: Dictionary):
+func resolve_to_wound(weapon, target, hits: RollResult, ctx: Dictionary, dice: DiceRoller) -> RollResult:
 	assert(false, "RulesetProvider.resolve_to_wound() must be overridden")
 	return null
 
 
 ## Save roll (armor save modified by Rend/AP, plus a separate unmodified
 ## ward/invulnerable save where the unit has one).
-func resolve_save(target, weapon, wounds, ctx: Dictionary):
+func resolve_save(target, weapon, wounds: RollResult, ctx: Dictionary, dice: DiceRoller) -> RollResult:
 	assert(false, "RulesetProvider.resolve_save() must be overridden")
 	return null
 
 
-## Ruleset-specific wound allocation order (closest-model-first, spillover rules, etc.).
-func allocate_wounds(unit, damage_events: Array) -> Array:
+## Ruleset-specific wound allocation order (closest-model-first, spillover
+## rules, etc.) and the Damage roll per failed save. Returns an Array of
+## per-event result Dictionaries (e.g. {"damage_applied": int}).
+func allocate_wounds(unit, damage_events: Array, dice: DiceRoller) -> Array:
 	assert(false, "RulesetProvider.allocate_wounds() must be overridden")
 	return []
 
