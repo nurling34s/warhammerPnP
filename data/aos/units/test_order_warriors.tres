@@ -1,7 +1,8 @@
-[gd_resource type="Resource" script_class="AoSUnitStats" load_steps=3 format=3]
+[gd_resource type="Resource" script_class="AoSUnitStats" load_steps=4 format=3]
 
 [ext_resource type="Script" path="res://core/models/aos_unit_stats.gd" id="1"]
 [ext_resource type="Resource" path="res://data/aos/weapons/test_order_blade.tres" id="2"]
+[ext_resource type="Resource" path="res://data/aos/weapons/test_order_javelin.tres" id="3"]
 
 [resource]
 script = ExtResource("1")
@@ -14,7 +15,7 @@ move_inches = 5.0
 health_per_model = 2
 save = 4
 points_cost = 100
-weapons = Array[Resource]([ExtResource("2")])
+weapons = Array[Resource]([ExtResource("2"), ExtResource("3")])
 base_size_mm = 32.0
 bravery = 6
 control_score = 1

@@ -10,4 +10,5 @@ attacks = "1"
 to_hit_stat = 5
 strength_or_damage = "4"
 ap_or_rend = 0
+damage = "1"
 special_rules = Array[StringName]([])

@@ -9,8 +9,10 @@ func test_aos_order_warriors_loads_with_correct_type_and_fields() -> void:
 	assert_eq(unit.unit_id, &"aos.test.order_warriors")
 	assert_eq(unit.models_per_unit, 5)
 	assert_eq(unit.bravery, 6)
-	assert_eq(unit.weapons.size(), 1)
+	assert_eq(unit.weapons.size(), 2)
 	assert_eq(unit.weapons[0].weapon_name, "Test Blade")
+	assert_eq(unit.weapons[1].weapon_name, "Test Javelin")
+	assert_gt(unit.weapons[1].range_inches, 0.0, "the javelin should be a ranged weapon")
 
 
 func test_aos_chaos_brutes_loads() -> void:

@@ -13,4 +13,7 @@ extends Resource
 @export var to_hit_stat: int = 4                 ## AoS4: flat hit target; 40k: WS/BS override if set
 @export var strength_or_damage: String = "1"     ## 40k: Strength; AoS4: Damage (dice notation allowed)
 @export var ap_or_rend: int = 0                  ## 40k: AP; AoS4: Rend — same slot, ruleset-specific meaning
+@export var damage: String = "1"                 ## 40k only: Damage per failed save (dice notation allowed).
+                                                  ## AoS4 keeps using strength_or_damage as its Damage char —
+                                                  ## 40k needs Strength and Damage as two separate numbers.
 @export var special_rules: Array[StringName] = []  ## e.g. &"sustained_hits_1", &"crit_mortal"
