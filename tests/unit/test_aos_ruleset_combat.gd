@@ -19,9 +19,10 @@ class ScriptedDice:
 		return _queue.pop_front()
 
 
-func _make_weapon(to_hit: int = 3, damage: String = "1", rend: int = 0) -> WeaponProfile:
+func _make_weapon(to_hit: int = 3, damage: String = "1", rend: int = 0, wound: int = 4) -> WeaponProfile:
 	var weapon := WeaponProfile.new()
 	weapon.to_hit_stat = to_hit
+	weapon.wound_stat = wound
 	weapon.strength_or_damage = damage
 	weapon.ap_or_rend = rend
 	return weapon
@@ -44,17 +45,20 @@ func test_resolve_to_hit_uses_weapon_to_hit_stat_and_attack_count() -> void:
 	assert_eq(result.successes, 2)
 
 
-func test_resolve_to_wound_is_pass_through() -> void:
+func test_resolve_to_wound_rolls_against_weapon_wound_stat() -> void:
 	var ruleset := AoSRuleset.new()
+	var weapon := _make_weapon(3, "1", 0, 4)  # wound 4+
 	var hits := RollResult.new()
-	hits.successes = 4
-	assert_eq(ruleset.resolve_to_wound(null, null, hits, {}, null), hits)
+	hits.successes = 3
+	var dice := ScriptedDice.new([4, 5, 2])  # target 4+: wound, wound, fail
+	var result := ruleset.resolve_to_wound(weapon, null, hits, {}, dice)
+	assert_eq(result.successes, 2)
 
 
 func test_resolve_save_reduced_by_rend() -> void:
 	var ruleset := AoSRuleset.new()
 	var target := _make_unit(4, 0)  # save 4+, rend -1 -> effective 5+
-	var weapon := _make_weapon(3, "1", 1)
+	var weapon := _make_weapon(3, "1", -1)  # Rend is stored signed, like 40k's AP (see chaos_glaive.tres)
 	var wounds := RollResult.new()
 	wounds.successes = 2
 	var dice := ScriptedDice.new([5, 4])  # 5 saves (>=5), 4 fails (<5)

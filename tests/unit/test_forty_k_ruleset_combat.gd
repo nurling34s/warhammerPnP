@@ -91,3 +91,45 @@ func test_allocate_wounds_rolls_weapon_damage_field_not_strength() -> void:
 
 	assert_eq(results[0].damage_applied, 2)
 	assert_eq(target.models_alive, 2)
+
+
+## Ported from AoSRuleset in Phase 5f: engagement range now uses nearest-model
+## distance (unit.model_positions), not the anchor point.
+func test_is_in_engagement_range_uses_nearest_model_distance() -> void:
+	var ruleset := FortyKRuleset.new()
+	var unit := _make_unit()
+	unit.owner_player = 0
+	unit.position_inches = Vector2(0, 0)
+	var enemy := _make_unit()
+	enemy.owner_player = 1
+	enemy.position_inches = Vector2(1.5, 0)  # anchors 1.5" apart, over the 1" engagement range...
+
+	assert_true(ruleset.is_in_engagement_range(unit, [unit, enemy]),
+		"...but the nearest models in each 3-model grid formation should be within 1\"")
+
+
+func test_is_not_in_engagement_range_when_far_apart() -> void:
+	var ruleset := FortyKRuleset.new()
+	var unit := _make_unit()
+	unit.owner_player = 0
+	unit.position_inches = Vector2(0, 0)
+	var enemy := _make_unit()
+	enemy.owner_player = 1
+	enemy.position_inches = Vector2(10, 0)
+
+	assert_false(ruleset.is_in_engagement_range(unit, [unit, enemy]))
+
+
+## check_unit_coherency ported from AoSRuleset in Phase 5f — 40k previously
+## had no override at all and would hit RulesetProvider's abstract stub.
+func test_check_unit_coherency_true_for_auto_generated_formation() -> void:
+	var ruleset := FortyKRuleset.new()
+	var unit := _make_unit()
+	assert_true(ruleset.check_unit_coherency(unit))
+
+
+func test_check_unit_coherency_false_when_a_model_is_spaced_too_far() -> void:
+	var ruleset := FortyKRuleset.new()
+	var unit := _make_unit()
+	unit.model_positions[unit.model_positions.size() - 1] += Vector2(100, 0)
+	assert_false(ruleset.check_unit_coherency(unit))

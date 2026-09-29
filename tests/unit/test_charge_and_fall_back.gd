@@ -53,19 +53,43 @@ func test_unit_engaged_cannot_move_without_falling_back() -> void:
 	assert_eq(result.reason, "engaged_must_fall_back")
 
 
+## Distinct from _make_unit(): pre-sets health_per_model on the stats before
+## constructing the UnitInstance, since model_wounds_remaining is built once
+## at _init() time — mutating stats.health_per_model afterward wouldn't
+## resize it.
+func _make_tanky_unit(player: int, position: Vector2) -> UnitInstance:
+	var stats := AoSUnitStats.new()
+	stats.move_inches = 5.0
+	stats.health_per_model = 10  # survive the D3 self-damage roll in these tests
+	var unit := UnitInstance.new(stats, player)
+	unit.position_inches = position
+	return unit
+
+
 func test_declared_fall_back_lets_engaged_unit_move() -> void:
 	var ruleset := AoSRuleset.new()
 	var tm := TurnManager.new(ruleset)
 	var phase := AoSMovementPhase.new(tm)
-	var unit := _make_unit(0, Vector2(0, 0))
-	unit.stats.move_inches = 5.0
+	var unit := _make_tanky_unit(0, Vector2(0, 0))
 	var enemy := _make_unit(1, Vector2(1, 0))
 
-	phase.declare_fall_back(unit)
+	phase.declare_fall_back(unit, ScriptedDice.new([2]))
 	var result := phase.try_move_unit(unit, Vector2(4, 0), [unit, enemy])
 
 	assert_true(result.ok)
 	assert_eq(unit.position_inches, Vector2(4, 0))
+
+
+func test_declared_fall_back_deals_d3_self_damage() -> void:
+	var ruleset := AoSRuleset.new()
+	var tm := TurnManager.new(ruleset)
+	var phase := AoSMovementPhase.new(tm)
+	var unit := _make_tanky_unit(0, Vector2(0, 0))
+
+	phase.declare_fall_back(unit, ScriptedDice.new([2]))
+
+	assert_eq(unit.model_wounds_remaining[0], 8)  # 10 - 2 self-inflicted damage
+	assert_true(unit.has_fallen_back)
 
 
 func test_reset_turn_flags_clears_fallen_back_for_next_turn() -> void:

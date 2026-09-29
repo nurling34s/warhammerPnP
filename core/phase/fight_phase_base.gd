@@ -33,7 +33,8 @@ func activation_queue() -> Array[UnitInstance]:
 ## stopping short if that's closer than the full pile-in distance. Blocked
 ## by impassable terrain like any other move.
 func declare_pile_in(unit: UnitInstance, target_enemy: UnitInstance) -> Dictionary:
-	var to_target: Vector2 = target_enemy.position_inches - unit.position_inches
+	var aim_point: Vector2 = _pile_in_aim_point(unit, target_enemy)
+	var to_target: Vector2 = aim_point - unit.position_inches
 	var distance: float = to_target.length()
 	if distance <= 0.0:
 		return {"ok": true, "reason": ""}
@@ -47,13 +48,26 @@ func declare_pile_in(unit: UnitInstance, target_enemy: UnitInstance) -> Dictiona
 	return check
 
 
+## The point the whole (still-rigid) formation moves toward. Anchor point by
+## default; override where per-model geometry exists (see AoSFightPhase) so
+## the unit aims at the nearest enemy model, not the enemy's anchor.
+func _pile_in_aim_point(_unit: UnitInstance, target_enemy: UnitInstance) -> Vector2:
+	return target_enemy.position_inches
+
+
 func can_fight(attacker: UnitInstance, target: UnitInstance) -> Dictionary:
 	if attacker.has_fought:
 		return {"ok": false, "reason": "already_fought"}
 	var range_inches: float = turn_manager.ruleset.get_engagement_range_inches()
-	if attacker.position_inches.distance_to(target.position_inches) > range_inches:
+	if _engagement_distance(attacker, target) > range_inches:
 		return {"ok": false, "reason": "out_of_engagement_range"}
 	return {"ok": true, "reason": ""}
+
+
+## Distance used for the engagement-range check in can_fight. Anchor-point
+## distance by default; override where per-model geometry exists.
+func _engagement_distance(attacker: UnitInstance, target: UnitInstance) -> float:
+	return attacker.position_inches.distance_to(target.position_inches)
 
 
 func declare_fight(attacker: UnitInstance, weapon: WeaponProfile, target: UnitInstance, resolver: AttackResolver) -> Dictionary:

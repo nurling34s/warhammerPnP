@@ -9,6 +9,9 @@ extends RefCounted
 var units: Array[UnitInstance] = []
 var terrain: Array[TerrainPiece] = []
 var combat_log: CombatLog = CombatLog.new()
+var objectives: Array[ObjectiveMarker] = []
+## Victory points per player index, scored by ObjectiveScoring at end of turn.
+var victory_points: Array[int] = [0, 0]
 
 
 func units_for_player(player: int) -> Array[UnitInstance]:
@@ -17,3 +20,8 @@ func units_for_player(player: int) -> Array[UnitInstance]:
 
 func enemy_units_of(unit: UnitInstance) -> Array[UnitInstance]:
 	return units.filter(func(u: UnitInstance): return u.owner_player != unit.owner_player and not u.is_destroyed)
+
+
+func add_victory_point(player: int) -> void:
+	if player >= 0 and player < victory_points.size():
+		victory_points[player] += 1

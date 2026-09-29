@@ -19,14 +19,27 @@ func can_shoot(attacker: UnitInstance, weapon: WeaponProfile, target: UnitInstan
 	if attacker.has_shot:
 		return {"ok": false, "reason": "already_shot"}
 
-	var distance: float = attacker.position_inches.distance_to(target.position_inches)
+	var distance: float = _range_distance(attacker, target)
 	if distance > weapon.range_inches:
 		return {"ok": false, "reason": "out_of_range"}
 
-	if LineOfSight.is_blocked(attacker.position_inches, target.position_inches, terrain):
+	var los := _los_endpoints(attacker, target)
+	if LineOfSight.is_blocked(los.from, los.to, terrain):
 		return {"ok": false, "reason": "no_line_of_sight"}
 
 	return {"ok": true, "reason": ""}
+
+
+## Distance used for weapon range. Anchor-point distance by default; override
+## where per-model geometry exists (see AoSShootingPhase).
+func _range_distance(attacker: UnitInstance, target: UnitInstance) -> float:
+	return attacker.position_inches.distance_to(target.position_inches)
+
+
+## Endpoints used for the LoS check. Anchor points by default; override
+## where per-model geometry exists (see AoSShootingPhase).
+func _los_endpoints(attacker: UnitInstance, target: UnitInstance) -> Dictionary:
+	return {"from": attacker.position_inches, "to": target.position_inches}
 
 
 func get_valid_targets(attacker: UnitInstance, weapon: WeaponProfile, all_units: Array, terrain: Array[TerrainPiece]) -> Array[UnitInstance]:
@@ -47,6 +60,6 @@ func declare_shoot(attacker: UnitInstance, weapon: WeaponProfile, target: UnitIn
 		return {"ok": false, "reason": check.reason, "outcome": null}
 
 	attacker.has_shot = true
-	var range_inches: float = attacker.position_inches.distance_to(target.position_inches)
+	var range_inches: float = _range_distance(attacker, target)
 	var outcome: AttackOutcome = resolver.resolve_attack(attacker, weapon, target, {"range_inches": range_inches})
 	return {"ok": true, "reason": "", "outcome": outcome}

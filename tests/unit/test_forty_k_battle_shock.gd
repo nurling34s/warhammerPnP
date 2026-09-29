@@ -1,3 +1,7 @@
+## AoS4 has no Battleshock at all (warhammer_age_of_sigmar_4.md section 1) —
+## this file used to also cover AoSRuleset.resolve_battleshock()/AoSEndPhase's
+## battleshock consequence, which have been removed. Only 40k 11th ed still
+## has the mechanic.
 extends GutTest
 
 ## Same scripted-dice pattern as test_dice_roller.gd.
@@ -19,39 +23,11 @@ class ScriptedDice:
 		return _queue.pop_front()
 
 
-func _make_aos_unit(bravery: int = 6) -> UnitInstance:
-	var stats := AoSUnitStats.new()
-	stats.bravery = bravery
-	stats.models_per_unit = 3
-	return UnitInstance.new(stats, 0)
-
-
 func _make_40k_unit(leadership: int = 6) -> UnitInstance:
 	var stats := FortyKUnitStats.new()
 	stats.leadership = leadership
 	stats.models_per_unit = 3
 	return UnitInstance.new(stats, 0)
-
-
-func test_aos_battleshock_auto_passes_with_no_models_lost() -> void:
-	var ruleset := AoSRuleset.new()
-	var unit := _make_aos_unit(6)
-	var dice := ScriptedDice.new([])
-	assert_true(ruleset.resolve_battleshock(unit, 0, dice))
-
-
-func test_aos_battleshock_fails_when_roll_plus_losses_exceeds_bravery() -> void:
-	var ruleset := AoSRuleset.new()
-	var unit := _make_aos_unit(6)
-	var dice := ScriptedDice.new([5])  # 5 + 2 lost = 7 > bravery 6
-	assert_false(ruleset.resolve_battleshock(unit, 2, dice))
-
-
-func test_aos_battleshock_passes_when_total_within_bravery() -> void:
-	var ruleset := AoSRuleset.new()
-	var unit := _make_aos_unit(6)
-	var dice := ScriptedDice.new([3])  # 3 + 1 lost = 4 <= bravery 6
-	assert_true(ruleset.resolve_battleshock(unit, 1, dice))
 
 
 func test_forty_k_battleshock_fails_when_2d6_exceeds_leadership() -> void:
@@ -66,35 +42,6 @@ func test_forty_k_battleshock_passes_when_2d6_within_leadership() -> void:
 	var unit := _make_40k_unit(9)
 	var dice := ScriptedDice.new([3, 4])  # sum 7 <= leadership 9
 	assert_true(ruleset.resolve_battleshock(unit, 1, dice))
-
-
-func test_aos_end_phase_removes_one_model_on_failed_battleshock() -> void:
-	var ruleset := AoSRuleset.new()
-	var tm := TurnManager.new(ruleset)
-	var unit := _make_aos_unit(6)
-	unit.models_lost_this_turn = 2
-	tm.match_state.units.append(unit)
-
-	var phase := AoSEndPhase.new(tm)
-	var dice := ScriptedDice.new([6])  # 6 + 2 = 8 > bravery 6 -> fail
-
-	phase.resolve_battleshock_for_unit(unit, dice)
-
-	assert_eq(unit.models_alive, 2, "should have lost one additional model")
-	assert_true(unit.battleshock_failed_this_turn)
-
-
-func test_aos_end_phase_skips_units_with_no_losses() -> void:
-	var ruleset := AoSRuleset.new()
-	var tm := TurnManager.new(ruleset)
-	var unit := _make_aos_unit(6)
-	var dice := ScriptedDice.new([])  # would error if consumed
-
-	var phase := AoSEndPhase.new(tm)
-	phase.resolve_battleshock_for_unit(unit, dice)
-
-	assert_eq(unit.models_alive, 3)
-	assert_false(unit.battleshock_failed_this_turn)
 
 
 func test_forty_k_battle_shock_phase_removes_one_model_on_failure() -> void:

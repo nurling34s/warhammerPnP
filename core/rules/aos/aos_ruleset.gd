@@ -1,9 +1,7 @@
 ## Age of Sigmar 4th-edition ruleset. Phase order per turn: Hero, Movement,
-## Shooting, Charge, Combat, End (Battleshock resolves inside End Phase for
-## both players, per AoS4 — it is not a separate phase, unlike AoS3).
-##
-## Only phase sequencing is implemented so far; combat math, charge rolls,
-## battleshock and coherency are Phase 2/3 work (see RulesetProvider).
+## Shooting, Charge, Combat, End. AoS4 has no Battleshock phase or mechanic
+## at all (see warhammer_age_of_sigmar_4.md section 1) — End Phase is where
+## objective control gets scored instead (Phase 5d, not built yet).
 class_name AoSRuleset
 extends RulesetProvider
 
@@ -17,7 +15,7 @@ func build_phase_sequence(turn_manager: TurnManager) -> Array[GamePhase]:
 		NamedPlaceholderPhase.new(turn_manager, &"Hero Phase"),
 		AoSMovementPhase.new(turn_manager),
 		AoSShootingPhase.new(turn_manager),
-		NamedPlaceholderPhase.new(turn_manager, &"Charge Phase"),
+		AoSChargePhase.new(turn_manager),
 		AoSFightPhase.new(turn_manager),
 		AoSEndPhase.new(turn_manager),
 	]
@@ -27,8 +25,8 @@ func get_unit_stats_script() -> Script:
 	return AoSUnitStats
 
 
-## AoS4 engagement range is 3" horizontally from the unit's models
-## (round/placeholder figure — verify against the current core rulebook).
+## AoS4 standardized melee/engagement range to 3" (warhammer_age_of_sigmar_4.md
+## section 1, "Единый радиус ближнего боя").
 func get_engagement_range_inches() -> float:
 	return 3.0
 
@@ -39,19 +37,31 @@ func roll_charge_distance(_unit: UnitInstance, dice: DiceRoller) -> int:
 	return rolls[0] + rolls[1]
 
 
+## Uses nearest-model-to-nearest-model distance (unit.model_positions), not
+## the unit's anchor point — see UnitInstance.model_positions doc.
 func is_in_engagement_range(unit: UnitInstance, all_units: Array) -> bool:
 	var range_inches := get_engagement_range_inches()
 	for other in all_units:
 		if other == unit or other.owner_player == unit.owner_player or other.is_destroyed:
 			continue
-		if unit.position_inches.distance_to(other.position_inches) <= range_inches:
+		if unit.nearest_model_distance_to(other) <= range_inches:
 			return true
 	return false
 
 
-## AoS4 has no separate to-wound roll: a weapon's Rend hits the Save
-## directly and Damage applies right after a failed save. To-hit is a flat
-## roll against the weapon's to_hit_stat.
+## Real per-model coherency check (see UnitInstance.is_coherent) rather than
+## the RulesetProvider stub.
+func check_unit_coherency(unit: UnitInstance) -> bool:
+	return unit.is_coherent(UnitInstance.MODEL_SPACING_INCHES)
+
+
+## Flat roll against the weapon's to_hit_stat (its Hit characteristic).
+##
+## Not yet implemented: warhammer_age_of_sigmar_4.md section 2/4 describes
+## Crit effects (Mortal / Auto-wound / 2 Hits) triggered by an unmodified 6
+## on this roll. Deliberately deferred — this is a new weapon-abilities
+## feature, not a correction of existing behavior, so it's tracked
+## separately rather than folded into this rules-compliance pass.
 func resolve_to_hit(_attacker, weapon: WeaponProfile, _target, ctx: Dictionary, dice: DiceRoller) -> RollResult:
 	var chain := ModifierChain.new()
 	chain.flat_modifier = int(ctx.get("to_hit_modifier", 0))
@@ -59,10 +69,14 @@ func resolve_to_hit(_attacker, weapon: WeaponProfile, _target, ctx: Dictionary, 
 	return chain.apply(dice, weapon.to_hit_stat, count)
 
 
-## Pass-through — see class doc. Keeps the AttackResolver pipeline the same
-## shape across both rulesets.
-func resolve_to_wound(_weapon, _target, hits: RollResult, _ctx: Dictionary, _dice: DiceRoller) -> RollResult:
-	return hits
+## AoS4 *does* have a separate Wound roll (warhammer_age_of_sigmar_4.md
+## section 2/4: "Wound Roll: Успешные попадания бросаются снова") — this
+## replaces an earlier, incorrect pass-through that assumed the AoS3 combat
+## sequence (no separate to-wound step). One D6 per successful Hit, against
+## the weapon's wound_stat.
+func resolve_to_wound(weapon: WeaponProfile, _target, hits: RollResult, _ctx: Dictionary, dice: DiceRoller) -> RollResult:
+	var chain := ModifierChain.new()
+	return chain.apply(dice, weapon.wound_stat, hits.successes)
 
 
 ## Armor save modified by Rend (-ap_or_rend), plus a second, unmodified Ward
@@ -73,7 +87,9 @@ func resolve_to_wound(_weapon, _target, hits: RollResult, _ctx: Dictionary, _dic
 func resolve_save(target, weapon: WeaponProfile, wounds: RollResult, _ctx: Dictionary, dice: DiceRoller) -> RollResult:
 	var stats: AoSUnitStats = target.stats
 	var armor_chain := ModifierChain.new()
-	armor_chain.flat_modifier = -weapon.ap_or_rend
+	# ap_or_rend is stored signed like 40k's AP (data uses e.g. -1 for "Rend -1"),
+	# so adding it to the roll makes the save harder. Was negated by mistake.
+	armor_chain.flat_modifier = weapon.ap_or_rend
 	var armor_result: RollResult = armor_chain.apply(dice, stats.save, wounds.successes)
 
 	var total_saved: int = armor_result.successes
@@ -94,14 +110,11 @@ func resolve_save(target, weapon: WeaponProfile, wounds: RollResult, _ctx: Dicti
 	return combined
 
 
-## D6 + models_lost_this_turn vs Bravery; fails if the total exceeds Bravery.
-## No test is needed (auto-pass) if the unit lost no models this turn.
-func resolve_battleshock(unit: UnitInstance, models_lost_this_turn: int, dice: DiceRoller) -> bool:
-	if models_lost_this_turn <= 0:
-		return true
-	var stats: AoSUnitStats = unit.stats
-	var total: int = dice.roll_single(6) + models_lost_this_turn
-	return total <= stats.bravery
+## Intentionally not overridden: AoS4 has no Battleshock at all (see
+## warhammer_age_of_sigmar_4.md section 1, "Отмена Battleshock" — this
+## replaces an earlier, AoS3-based Bravery-test implementation that used to
+## live here). Nothing calls RulesetProvider.resolve_battleshock() for AoS4
+## any more; only FortyKRuleset still overrides it.
 
 
 ## Rolls each failed save's Damage characteristic (weapon.strength_or_damage

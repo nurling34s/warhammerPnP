@@ -35,8 +35,10 @@ func test_aos_full_pipeline_end_to_end() -> void:
 	weapon.to_hit_stat = 3
 	weapon.strength_or_damage = "1"
 
-	# attack_count roll not needed (flat "2"); to-hit: 3,4 both hit; save: 1,2 both fail.
-	var dice := ScriptedDice.new([3, 4, 1, 2])
+	# attack_count roll not needed (flat "2"); to-hit: 3,4 both hit;
+	# to-wound (AoS4 has a real wound roll, default wound_stat 4+): 4,5 both wound;
+	# save: 1,2 both fail.
+	var dice := ScriptedDice.new([3, 4, 4, 5, 1, 2])
 	var ruleset := AoSRuleset.new()
 	var resolver := AttackResolver.new(ruleset, dice)
 
@@ -95,7 +97,7 @@ func test_attack_resolver_logs_to_combat_log_when_given_one() -> void:
 	weapon.attacks = "1"
 	weapon.to_hit_stat = 2
 
-	var dice := ScriptedDice.new([6, 1])  # hit, then failed save (1 always fails)
+	var dice := ScriptedDice.new([6, 4, 1])  # hit, then wound (default 4+), then failed save (1 always fails)
 	var log := CombatLog.new()
 	var resolver := AttackResolver.new(AoSRuleset.new(), dice, log)
 
@@ -105,6 +107,28 @@ func test_attack_resolver_logs_to_combat_log_when_given_one() -> void:
 	assert_eq(log.entries[0].attacker, "Attacker")
 	assert_eq(log.entries[0].target, "Target")
 	assert_eq(log.entries[0].weapon, "Test Weapon")
+	assert_eq(log.entries[0].kind, "attack")
+	assert_eq(log.entries[0].attacks, 1)
+	assert_eq(log.entries[0].hit_rolls, [6])
+	assert_eq(log.entries[0].wound_rolls, [4])
+	assert_eq(log.entries[0].save_rolls, [1])
+	assert_eq(log.entries[0].hit_target, 2)
+
+
+func test_combat_log_records_moves_and_messages() -> void:
+	var stats := AoSUnitStats.new()
+	stats.display_name = "Judicators"
+	var unit := UnitInstance.new(stats, 0)
+	var log := CombatLog.new()
+
+	log.log_move(unit, 4.8, 5.0)
+	log.log_message("Player 1 — Movement Phase")
+
+	assert_eq(log.entries[0].kind, "move")
+	assert_eq(log.entries[0].unit, "Judicators")
+	assert_almost_eq(log.entries[0].distance, 4.8, 0.001)
+	assert_eq(log.entries[1].kind, "message")
+	assert_eq(log.entries[1].text, "Player 1 — Movement Phase")
 
 
 func test_no_combat_log_does_not_error() -> void:

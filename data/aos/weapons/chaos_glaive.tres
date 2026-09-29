@@ -4,11 +4,11 @@
 
 [resource]
 script = ExtResource("1")
-weapon_name = "Test Rifle"
-range_inches = 24.0
+weapon_name = "Chaos Glaive"
+range_inches = 0.0
 attacks = "2"
 to_hit_stat = 3
-strength_or_damage = "4"
+wound_stat = 3
+strength_or_damage = "1"
 ap_or_rend = -1
-damage = "1"
 special_rules = Array[StringName]([])

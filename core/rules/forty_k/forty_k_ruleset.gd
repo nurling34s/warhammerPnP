@@ -18,7 +18,7 @@ func build_phase_sequence(turn_manager: TurnManager) -> Array[GamePhase]:
 		NamedPlaceholderPhase.new(turn_manager, &"Command Phase"),
 		FortyKMovementPhase.new(turn_manager),
 		FortyKShootingPhase.new(turn_manager),
-		NamedPlaceholderPhase.new(turn_manager, &"Charge Phase"),
+		FortyKChargePhase.new(turn_manager),
 		FortyKFightPhase.new(turn_manager),
 		FortyKBattleShockPhase.new(turn_manager),
 	]
@@ -28,10 +28,9 @@ func get_unit_stats_script() -> Script:
 	return FortyKUnitStats
 
 
-## 40k 11th ed engagement range is 1" horizontally (round/placeholder figure;
+## 40k 11th ed engagement range is 1" (confirmed against the core rulebook;
 ## the real rule also has a vertical component for multi-level terrain,
-## deferred until per-model positions exist — verify against the current
-## core rulebook before real army data is entered).
+## deferred until the board models height).
 func get_engagement_range_inches() -> float:
 	return 1.0
 
@@ -42,14 +41,29 @@ func roll_charge_distance(_unit: UnitInstance, dice: DiceRoller) -> int:
 	return rolls[0] + rolls[1]
 
 
+## Uses nearest-model-to-nearest-model distance (unit.model_positions), not
+## the unit's anchor point — ported from AoSRuleset in Phase 5f.
 func is_in_engagement_range(unit: UnitInstance, all_units: Array) -> bool:
 	var range_inches := get_engagement_range_inches()
 	for other in all_units:
 		if other == unit or other.owner_player == unit.owner_player or other.is_destroyed:
 			continue
-		if unit.position_inches.distance_to(other.position_inches) <= range_inches:
+		if unit.nearest_model_distance_to(other) <= range_inches:
 			return true
 	return false
+
+
+## 40k 11th ed unit coherency: every model must be within 2" of another model
+## in the same unit (placeholder figure — the real rule also has a 6" vertical
+## allowance for multi-level terrain and a "2 models within 2" for units of
+## 7+ models" wrinkle, neither modeled yet — verify against the current core
+## rulebook before treating this as final). Ported from AoSRuleset in Phase 5f;
+## RulesetProvider's default is an abstract stub, so 40k needs its own override.
+const COHERENCY_INCHES: float = 2.0
+
+
+func check_unit_coherency(unit: UnitInstance) -> bool:
+	return unit.is_coherent(COHERENCY_INCHES)
 
 
 ## To-hit against the weapon's to_hit_stat (a WS/BS override if set on the

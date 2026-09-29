@@ -63,3 +63,38 @@ func test_turn_manager_alternates_players_and_advances_battle_round() -> void:
 		tm.phase_machine.current_phase.request_end_phase()
 	assert_eq(tm.active_player, 0, "should be back to player 1")
 	assert_eq(tm.battle_round, 2, "a full round elapsed, battle round increments")
+
+
+func test_match_ends_after_max_battle_rounds_with_winner_by_victory_points() -> void:
+	var ruleset := AoSRuleset.new()
+	var tm := TurnManager.new(ruleset)
+	tm.max_battle_rounds = 1
+	tm.match_state.victory_points = [2, 1]
+	var winner_holder := [-99]  # array so the lambda below mutates it by reference
+	tm.match_ended.connect(func(w: int): winner_holder[0] = w)
+	tm.start_match()
+
+	for _i in 12:  # both players' full turns for round 1
+		if tm.is_match_over:
+			break
+		tm.phase_machine.current_phase.request_end_phase()
+
+	assert_true(tm.is_match_over)
+	assert_eq(winner_holder[0], 0)
+
+
+func test_match_ends_in_a_draw_when_victory_points_are_tied() -> void:
+	var ruleset := AoSRuleset.new()
+	var tm := TurnManager.new(ruleset)
+	tm.max_battle_rounds = 1
+	var winner_holder := [-99]
+	tm.match_ended.connect(func(w: int): winner_holder[0] = w)
+	tm.start_match()
+
+	for _i in 12:
+		if tm.is_match_over:
+			break
+		tm.phase_machine.current_phase.request_end_phase()
+
+	assert_true(tm.is_match_over)
+	assert_eq(winner_holder[0], -1)

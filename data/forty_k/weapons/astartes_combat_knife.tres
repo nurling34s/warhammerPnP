@@ -4,10 +4,11 @@
 
 [resource]
 script = ExtResource("1")
-weapon_name = "Test Axe"
+weapon_name = "Astartes Combat Knife"
 range_inches = 0.0
 attacks = "3"
 to_hit_stat = 3
-strength_or_damage = "2"
-ap_or_rend = 1
+strength_or_damage = "4"
+ap_or_rend = 0
+damage = "1"
 special_rules = Array[StringName]([])

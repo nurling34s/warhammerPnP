@@ -4,10 +4,11 @@
 
 [resource]
 script = ExtResource("1")
-weapon_name = "Test Blade"
+weapon_name = "Judicator Shortsword"
 range_inches = 0.0
-attacks = "2"
-to_hit_stat = 3
+attacks = "1"
+to_hit_stat = 4
+wound_stat = 4
 strength_or_damage = "1"
 ap_or_rend = 0
 special_rules = Array[StringName]([])

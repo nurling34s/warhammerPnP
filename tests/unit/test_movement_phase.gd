@@ -96,8 +96,87 @@ func test_move_near_but_outside_impassable_terrain_succeeds() -> void:
 	assert_true(result.ok)
 
 
+func test_normal_move_cannot_approach_within_engagement_range_of_a_new_enemy() -> void:
+	var ruleset := AoSRuleset.new()
+	var tm := TurnManager.new(ruleset)
+	var phase := AoSMovementPhase.new(tm)
+	var unit := _make_unit(0, Vector2(0, 0), 5.0)
+	var enemy := _make_unit(1, Vector2(6, 0), 5.0)  # not engaged yet (6" apart)
+
+	var result := phase.try_move_unit(unit, Vector2(4, 0), [unit, enemy])  # would end 2" away
+
+	assert_false(result.ok)
+	assert_eq(result.reason, "normal_move_cannot_approach_within_engagement_range")
+	assert_eq(unit.position_inches, Vector2(0, 0))
+
+
+func test_normal_move_that_stays_more_than_3_inches_from_enemy_succeeds() -> void:
+	var ruleset := AoSRuleset.new()
+	var tm := TurnManager.new(ruleset)
+	var phase := AoSMovementPhase.new(tm)
+	var unit := _make_unit(0, Vector2(0, 0), 5.0)
+	var enemy := _make_unit(1, Vector2(10, 0), 5.0)
+
+	var result := phase.try_move_unit(unit, Vector2(3, 0), [unit, enemy])  # ends 7" away
+
+	assert_true(result.ok)
+
+
+func test_unit_can_only_move_once_per_phase() -> void:
+	var tm := TurnManager.new(AoSRuleset.new())
+	var phase := AoSMovementPhase.new(tm)
+	var unit := _make_unit(0, Vector2(0, 0), 5.0)
+
+	assert_true(phase.try_move_unit(unit, Vector2(2, 0), [unit]).ok)
+	var second := phase.try_move_unit(unit, Vector2(4, 0), [unit])
+
+	assert_false(second.ok)
+	assert_eq(second.reason, "already_moved")
+	assert_eq(unit.position_inches, Vector2(2, 0))
+
+
+func test_unit_can_move_again_after_has_moved_is_reset() -> void:
+	var tm := TurnManager.new(AoSRuleset.new())
+	var phase := AoSMovementPhase.new(tm)
+	var unit := _make_unit(0, Vector2(0, 0), 5.0)
+	phase.try_move_unit(unit, Vector2(2, 0), [unit])
+
+	unit.has_moved = false  # what Undo does
+
+	assert_true(phase.try_move_unit(unit, Vector2(3, 0), [unit]).ok)
+
+
 func test_get_phase_name_is_movement_phase() -> void:
 	var ruleset := AoSRuleset.new()
 	var tm := TurnManager.new(ruleset)
 	assert_eq(AoSMovementPhase.new(tm).get_phase_name(), &"Movement Phase")
 	assert_eq(FortyKMovementPhase.new(tm).get_phase_name(), &"Movement Phase")
+
+
+## Ported to 40k in Phase 5f: this check used to live only in
+## AoSMovementPhase.can_move_to() but is identical in 40k 11th ed, so it was
+## promoted to the shared MovementPhaseBase.can_move_to() instead.
+func test_forty_k_normal_move_cannot_approach_within_engagement_range_of_a_new_enemy() -> void:
+	var ruleset := FortyKRuleset.new()
+	var tm := TurnManager.new(ruleset)
+	var phase := FortyKMovementPhase.new(tm)
+	var unit := _make_unit(0, Vector2(0, 0), 5.0)
+	var enemy := _make_unit(1, Vector2(4.5, 0), 5.0)  # not engaged yet (40k's 1" range)
+
+	var result := phase.try_move_unit(unit, Vector2(4, 0), [unit, enemy])  # would end 0.5" away
+
+	assert_false(result.ok)
+	assert_eq(result.reason, "normal_move_cannot_approach_within_engagement_range")
+	assert_eq(unit.position_inches, Vector2(0, 0))
+
+
+func test_forty_k_normal_move_that_stays_out_of_engagement_range_succeeds() -> void:
+	var ruleset := FortyKRuleset.new()
+	var tm := TurnManager.new(ruleset)
+	var phase := FortyKMovementPhase.new(tm)
+	var unit := _make_unit(0, Vector2(0, 0), 5.0)
+	var enemy := _make_unit(1, Vector2(10, 0), 5.0)
+
+	var result := phase.try_move_unit(unit, Vector2(3, 0), [unit, enemy])  # ends 7" away
+
+	assert_true(result.ok)

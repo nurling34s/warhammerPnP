@@ -7,6 +7,9 @@ class_name TurnManager
 extends RefCounted
 
 signal turn_started(active_player: int, battle_round: int)
+## Emitted once, instead of the next turn_started, when battle_round exceeds
+## max_battle_rounds. winner is a player index, or -1 if victory points tie.
+signal match_ended(winner: int)
 
 var ruleset: RulesetProvider
 var phase_machine: PhaseStateMachine
@@ -14,6 +17,11 @@ var match_state: MatchState
 var active_player: int = 0
 var battle_round: int = 1
 var player_count: int = 2
+## Scenario-length limit — a full battle round per side each, per the plan's
+## Phase 5d scope ("простое табло очков за раунд, условие победы по очкам к
+## концу заданного числа раундов").
+var max_battle_rounds: int = 5
+var is_match_over: bool = false
 
 
 func _init(ruleset_provider: RulesetProvider, players: int = 2, state: MatchState = null) -> void:
@@ -26,6 +34,7 @@ func _init(ruleset_provider: RulesetProvider, players: int = 2, state: MatchStat
 func start_match() -> void:
 	active_player = 0
 	battle_round = 1
+	is_match_over = false
 	_start_player_turn()
 
 
@@ -33,7 +42,18 @@ func advance_player_turn() -> void:
 	active_player = (active_player + 1) % player_count
 	if active_player == 0:
 		battle_round += 1
+		if battle_round > max_battle_rounds:
+			is_match_over = true
+			match_ended.emit(_determine_winner())
+			return
 	_start_player_turn()
+
+
+func _determine_winner() -> int:
+	var points := match_state.victory_points
+	if points.size() < 2 or points[0] == points[1]:
+		return -1
+	return 0 if points[0] > points[1] else 1
 
 
 func _start_player_turn() -> void:
