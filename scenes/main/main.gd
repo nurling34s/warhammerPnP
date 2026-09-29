@@ -29,6 +29,7 @@ extends Node
 @onready var phase_label: Label = $UI/HUD/PhaseLabel
 @onready var next_phase_button: Button = $UI/HUD/NextPhaseButton
 @onready var undo_move_button: Button = $UI/HUD/UndoMoveButton
+@onready var fall_back_button: Button = $UI/HUD/FallBackButton
 @onready var match_end_label: Label = $UI/HUD/MatchEndLabel
 @onready var end_phase_confirm_popup: EndPhaseConfirmPopup = $UI/EndPhaseConfirmPopup
 @onready var world: Node2D = $World
@@ -49,7 +50,8 @@ var drag_ruler: DragRuler
 var shoot_selected_attacker: UnitInstance = null
 var fight_selected_attacker: UnitInstance = null
 var charge_selected_attacker: UnitInstance = null
-var charge_dice: DiceRoller = DiceRoller.new()
+## Shared by charge rolls and Fall Back self-damage.
+var dice: DiceRoller = DiceRoller.new()
 
 ## Set while WeaponChoicePopup is open, so _on_weapon_chosen() knows which
 ## attack to actually resolve once the player picks a weapon.
@@ -70,6 +72,7 @@ func _ready() -> void:
 	forty_k_button.pressed.connect(_start_match.bind(&"forty_k_11e"))
 	next_phase_button.pressed.connect(_on_next_phase_pressed)
 	undo_move_button.pressed.connect(_on_undo_move_pressed)
+	fall_back_button.toggled.connect(_on_fall_back_toggled)
 	roster_panel.unit_selected.connect(_on_roster_unit_selected)
 	weapon_choice_popup.weapon_chosen.connect(_on_weapon_chosen)
 	end_phase_confirm_popup.confirmed.connect(_end_current_phase)
@@ -198,12 +201,63 @@ func _on_board_clicked(position_inches: Vector2) -> void:
 
 	if deployment_manager and not deployment_manager.pending_units.is_empty():
 		_handle_deployment_click(position_inches)
+	elif current_phase is MovementPhaseBase:
+		_handle_movement_click(position_inches)
 	elif current_phase is ShootingPhaseBase:
 		_handle_shooting_click(position_inches)
 	elif current_phase is ChargePhaseBase:
 		_handle_charge_click(position_inches)
 	elif current_phase is FightPhaseBase:
 		_handle_fight_click(position_inches)
+
+
+func _on_fall_back_toggled(pressed: bool) -> void:
+	if pressed:
+		_log("Fall Back: click one of your units that is in combat")
+
+
+## Only acts while the Fall Back button is toggled on: declares the clicked
+## unit as falling back (AoS4 also rolls D3 self-damage in core/), after
+## which it is dragged out of engagement range like any other move.
+func _handle_movement_click(position_inches: Vector2) -> void:
+	if not fall_back_button.button_pressed:
+		return
+	var clicked_token := _find_token_at(position_inches)
+	if not clicked_token:
+		return
+
+	fall_back_button.button_pressed = false
+	var unit := clicked_token.unit_instance
+	var unit_name := unit.stats.display_name
+	if unit.owner_player != turn_manager.active_player:
+		_log("Fall Back: select one of your own units")
+	elif unit.has_moved:
+		_log("%s has already moved this phase" % unit_name)
+	elif unit.has_fallen_back:
+		_log("%s is already falling back" % unit_name)
+	elif not turn_manager.ruleset.is_in_engagement_range(unit, turn_manager.match_state.units):
+		_log("%s isn't in combat, so it has no need to fall back" % unit_name)
+	else:
+		var wounds_before := _total_wounds(unit)
+		current_phase.declare_fall_back(unit, dice)
+		var damage := wounds_before - _total_wounds(unit)
+		var note := " and takes %d damage" % damage if damage > 0 else ""
+		if unit.is_destroyed:
+			_log("%s falls back%s and is destroyed" % [unit_name, note])
+		else:
+			_log("%s falls back%s — drag it out of combat (it can't shoot or charge this turn)" % [unit_name, note])
+		clicked_token.refresh_label()
+		_last_move = {}
+		undo_move_button.visible = false
+		_refresh_roster()
+		_update_action_indicators()
+
+
+func _total_wounds(unit: UnitInstance) -> int:
+	var total := 0
+	for wounds in unit.model_wounds_remaining:
+		total += wounds
+	return total
 
 
 func _handle_deployment_click(position_inches: Vector2) -> void:
@@ -281,7 +335,7 @@ func _handle_charge_click(position_inches: Vector2) -> void:
 		_log("Charge cancelled — pick an enemy unit as the target")
 		return
 
-	var result: Dictionary = current_phase.declare_charge(attacker, target, turn_manager.match_state.units, charge_dice)
+	var result: Dictionary = current_phase.declare_charge(attacker, target, turn_manager.match_state.units, dice)
 	if result.distance_rolled > 0:
 		turn_manager.match_state.combat_log.log_charge(
 			attacker, target, result.distance_rolled, result.ok, result.distance_needed
@@ -293,12 +347,10 @@ func _handle_charge_click(position_inches: Vector2) -> void:
 	_update_action_indicators()
 
 
-## Two-click flow: first click picks your own engaged, not-yet-fought unit,
-## second click picks an enemy token in engagement range to fight — with a
-## weapon choice if the attacker has more than one melee weapon. Does not
-## enforce the activation queue's chargers-first/alternating order —
-## FightPhaseBase.next_to_fight()/activation_queue() are available for a
-## stricter UI later.
+## Two-click flow: first click picks a unit from FightPhaseBase.
+## eligible_units() (either player's — activation order is enforced in
+## core/), second click picks an enemy token in engagement range to fight —
+## with a weapon choice if the attacker has more than one melee weapon.
 func _handle_fight_click(position_inches: Vector2) -> void:
 	var clicked_token := _find_token_at(position_inches)
 	if not clicked_token:
@@ -306,10 +358,15 @@ func _handle_fight_click(position_inches: Vector2) -> void:
 
 	if fight_selected_attacker == null:
 		var candidate := clicked_token.unit_instance
-		if candidate.owner_player != turn_manager.active_player:
-			_log("Select one of your own units first")
-		elif candidate.has_fought:
+		var eligible: Array[UnitInstance] = current_phase.eligible_units()
+		if candidate.has_fought:
 			_log("%s has already fought this phase" % candidate.stats.display_name)
+		elif not current_phase.pending_units().has(candidate):
+			_log("%s isn't in combat" % candidate.stats.display_name)
+		elif not eligible.has(candidate):
+			_log("Not %s's turn to fight — Player %d activates next" % [
+				candidate.stats.display_name, eligible[0].owner_player + 1
+			])
 		else:
 			fight_selected_attacker = candidate
 			_highlight_selected(candidate)
@@ -359,8 +416,15 @@ func _execute_attack(weapon: WeaponProfile, attacker: UnitInstance, target: Unit
 	if mode == &"shoot":
 		result = current_phase.declare_shoot(attacker, weapon, target, turn_manager.match_state.terrain, attack_resolver)
 	else:
-		current_phase.declare_pile_in(attacker, target)
-		_find_token_for_instance(attacker).sync_position_from_instance()
+		# Only pile in when the fight is actually allowed, so a refused fight
+		# never moves the unit.
+		if current_phase.can_fight(attacker, target).ok:
+			var position_before := attacker.position_inches
+			current_phase.declare_pile_in(attacker, target)
+			var moved := position_before.distance_to(attacker.position_inches)
+			if moved > 0.05:
+				_log("%s piles in %.1f\"" % [attacker.stats.display_name, moved])
+			_find_token_for_instance(attacker).sync_position_from_instance()
 		result = current_phase.declare_fight(attacker, weapon, target, attack_resolver)
 
 	if result.ok:
@@ -370,9 +434,9 @@ func _execute_attack(weapon: WeaponProfile, attacker: UnitInstance, target: Unit
 	else:
 		var detail := ""
 		if result.reason == "out_of_range":
-			detail = " (%.1f\" away, weapon range %.0f\")" % [attacker.nearest_model_distance_to(target), weapon.range_inches]
+			detail = " (%.1f\" away, weapon range %.0f\")" % [attacker.nearest_edge_distance_to(target), weapon.range_inches]
 		elif result.reason == "out_of_engagement_range":
-			detail = " (%.1f\" away)" % attacker.nearest_model_distance_to(target)
+			detail = " (%.1f\" away)" % attacker.nearest_edge_distance_to(target)
 		_log("%s can't %s %s with %s: %s%s" % [
 			attacker.stats.display_name, "shoot" if mode == &"shoot" else "fight",
 			target.stats.display_name, weapon.weapon_name, _reason_text(result.reason), detail
@@ -394,6 +458,10 @@ const REASON_TEXT := {
 	"already_attempted_charge": "already attempted a charge this phase",
 	"cannot_charge_after_falling_back": "can't charge after falling back",
 	"already_engaged": "already in engagement range",
+	"not_engaged": "not in engagement range",
+	"not_this_units_turn_to_fight": "it's not this unit's turn to fight",
+	"cannot_shoot_after_falling_back": "can't shoot after falling back",
+	"fall_back_must_end_outside_engagement": "a fall back must end outside engagement range",
 }
 
 
@@ -466,6 +534,9 @@ func _on_token_drag_ended(token: UnitToken, position_inches: Vector2) -> void:
 	if current_phase is MovementPhaseBase and token.unit_instance.owner_player == turn_manager.active_player:
 		var unit := token.unit_instance
 		var position_before := unit.position_inches
+		if position_inches.distance_to(position_before) < 0.5:
+			token.sync_position_from_instance()  # a click, not a drag — never a move attempt
+			return
 		var had_moved_before := unit.has_moved
 		var result: Dictionary = current_phase.try_move_unit(unit, position_inches, turn_manager.match_state.units)
 		if result.ok:
@@ -474,7 +545,7 @@ func _on_token_drag_ended(token: UnitToken, position_inches: Vector2) -> void:
 			turn_manager.match_state.combat_log.log_move(
 				unit, position_before.distance_to(unit.position_inches), unit.remaining_move_inches()
 			)
-		elif position_inches.distance_to(position_before) > 0.1:
+		else:
 			_log("%s can't move there: %s" % [unit.stats.display_name, _reason_text(result.reason)])
 		_update_action_indicators()
 	token.sync_position_from_instance()
@@ -503,6 +574,8 @@ func _on_phase_changed(phase: GamePhase) -> void:
 	_highlight_selected(null)
 	_last_move = {}
 	undo_move_button.visible = false
+	fall_back_button.button_pressed = false
+	fall_back_button.visible = phase is MovementPhaseBase
 	_log("— Player %d, round %d: %s —" % [turn_manager.active_player + 1, turn_manager.battle_round, phase.get_phase_name()])
 	_update_action_indicators()
 	_refresh_roster()
@@ -521,10 +594,12 @@ func _pending_units_for_current_phase() -> Array[UnitInstance]:
 			)
 		)
 	if current_phase is FightPhaseBase:
-		return current_phase.activation_queue()
+		return current_phase.pending_units()
 	if current_phase is ShootingPhaseBase:
 		return turn_manager.match_state.units_for_player(turn_manager.active_player).filter(
-			func(u: UnitInstance): return not u.has_shot and not _find_ranged_weapons(u.stats).is_empty()
+			func(u: UnitInstance): return (
+				not u.has_shot and not u.has_fallen_back and not _find_ranged_weapons(u.stats).is_empty()
+			)
 		)
 	if current_phase is MovementPhaseBase:
 		return turn_manager.match_state.units_for_player(turn_manager.active_player).filter(
@@ -533,8 +608,10 @@ func _pending_units_for_current_phase() -> Array[UnitInstance]:
 	return []
 
 
+## In the Fight phase only the units whose turn it is to activate get the dot;
+## everywhere else it marks every unit with an action pending.
 func _update_action_indicators() -> void:
-	var pending := _pending_units_for_current_phase()
+	var pending: Array[UnitInstance] = current_phase.eligible_units() if current_phase is FightPhaseBase else _pending_units_for_current_phase()
 	for token in tokens:
 		token.set_can_act_indicator(pending.has(token.unit_instance))
 

@@ -35,7 +35,8 @@ func _process(_delta: float) -> void:
 func apply_instance(instance: UnitInstance) -> void:
 	unit_instance = instance
 	var stats: UnitStats = instance.stats
-	_marker_size_px = maxf(stats.base_size_mm / 2.0, 16.0)
+	# True to scale, so touching bases (edge distance 0) look like they touch.
+	_marker_size_px = maxf(stats.base_size_mm / 25.4 * BoardScale.PIXELS_PER_INCH, 8.0)
 	name_label.position = Vector2(-40, -_marker_size_px / 2.0 - 18)
 	tooltip_area.size = Vector2(_marker_size_px, _marker_size_px)
 	tooltip_area.position = -tooltip_area.size / 2.0

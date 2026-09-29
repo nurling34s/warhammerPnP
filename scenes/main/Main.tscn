@@ -54,6 +54,11 @@ text = "Next Phase"
 visible = false
 text = "Undo last move"
 
+[node name="FallBackButton" type="Button" parent="UI/HUD"]
+visible = false
+toggle_mode = true
+text = "Fall Back"
+
 [node name="MatchEndLabel" type="Label" parent="UI/HUD"]
 visible = false
 text = ""
