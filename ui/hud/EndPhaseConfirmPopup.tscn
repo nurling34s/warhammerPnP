@@ -1,0 +1,22 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://ui/hud/end_phase_confirm_popup.gd" id="1"]
+
+[node name="EndPhaseConfirmPopup" type="PanelContainer"]
+visible = false
+script = ExtResource("1")
+
+[node name="Layout" type="VBoxContainer" parent="."]
+
+[node name="Message" type="Label" parent="Layout"]
+autowrap_mode = 2
+custom_minimum_size = Vector2(220, 0)
+text = "Some units haven't acted this phase yet. End phase anyway?"
+
+[node name="Buttons" type="HBoxContainer" parent="Layout"]
+
+[node name="ConfirmButton" type="Button" parent="Layout/Buttons"]
+text = "End phase"
+
+[node name="CancelButton" type="Button" parent="Layout/Buttons"]
+text = "Cancel"
