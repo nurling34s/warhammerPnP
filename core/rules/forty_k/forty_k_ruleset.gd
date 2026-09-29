@@ -48,7 +48,7 @@ func is_in_engagement_range(unit: UnitInstance, all_units: Array) -> bool:
 	for other in all_units:
 		if other == unit or other.owner_player == unit.owner_player or other.is_destroyed:
 			continue
-		if unit.nearest_model_distance_to(other) <= range_inches:
+		if unit.nearest_edge_distance_to(other) <= range_inches:
 			return true
 	return false
 

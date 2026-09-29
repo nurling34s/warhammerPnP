@@ -18,6 +18,8 @@ func on_enter() -> void:
 func can_shoot(attacker: UnitInstance, weapon: WeaponProfile, target: UnitInstance, terrain: Array[TerrainPiece]) -> Dictionary:
 	if attacker.has_shot:
 		return {"ok": false, "reason": "already_shot"}
+	if attacker.has_fallen_back:
+		return {"ok": false, "reason": "cannot_shoot_after_falling_back"}
 
 	var distance: float = _range_distance(attacker, target)
 	if distance > weapon.range_inches:

@@ -49,14 +49,14 @@ func test_successful_charge_moves_unit_into_engagement_range_and_sets_has_charge
 	assert_true(phase.turn_manager.ruleset.is_in_engagement_range(unit, [unit, enemy]))
 
 
-func test_charge_never_lands_a_model_on_top_of_the_target() -> void:
+func test_charge_with_a_long_roll_stops_at_the_contact_gap() -> void:
 	var phase := _make_phase(FortyKRuleset.new())
 	var unit := _make_unit(0, Vector2(0, 0))
 	var enemy := _make_unit(1, Vector2(10, 0))
 
 	phase.declare_charge(unit, enemy, [unit, enemy], ScriptedDice.new([6, 6]))  # 12" — far more than needed
 
-	assert_almost_eq(unit.nearest_model_distance_to(enemy), ChargePhaseBase.STOP_GAP_INCHES, 0.001)
+	assert_almost_eq(unit.nearest_model_distance_to(enemy), MovementMath.CONTACT_GAP_INCHES, 0.001)
 	assert_true(phase.turn_manager.ruleset.is_in_engagement_range(unit, [unit, enemy]))
 
 
@@ -136,6 +136,21 @@ func test_charge_ending_inside_impassable_terrain_is_rejected() -> void:
 	assert_eq(result.reason, "blocked_by_terrain")
 	assert_false(unit.has_charged)
 	assert_eq(unit.position_inches, Vector2(0, 0))
+
+
+func test_charge_ends_with_the_bases_touching_and_still_in_engagement_range() -> void:
+	for ruleset in [AoSRuleset.new(), FortyKRuleset.new()]:
+		var phase := _make_phase(ruleset)
+		var unit := _make_unit(0, Vector2(0, 0))
+		var enemy := _make_unit(1, Vector2(10, 0))
+		unit.stats.base_size_mm = 32.0
+		enemy.stats.base_size_mm = 32.0
+
+		var result := phase.declare_charge(unit, enemy, [unit, enemy], ScriptedDice.new([6, 6]))
+
+		assert_true(result.ok)
+		assert_almost_eq(unit.nearest_edge_distance_to(enemy), 0.0, 0.001, "bases touch")
+		assert_true(ruleset.is_in_engagement_range(unit, [unit, enemy]), "touching bases are engaged (40k's 1\" is edge-to-edge)")
 
 
 func test_forty_k_charge_uses_its_own_engagement_range() -> void:

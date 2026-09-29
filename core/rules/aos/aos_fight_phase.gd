@@ -1,6 +1,6 @@
-## AoS4 Combat Phase. Uses real nearest-model geometry for engagement-range
-## and pile-in aim (see UnitInstance.model_positions) — 40k keeps the shared
-## base's anchor-point behavior for now.
+## AoS4 Combat Phase. Per warhammer_age_of_sigmar_4.md section 5 players take
+## turns choosing units to fight, starting with the player whose turn it is,
+## and the document gives charging units no fight-first priority.
 class_name AoSFightPhase
 extends FightPhaseBase
 
@@ -9,9 +9,9 @@ func get_phase_name() -> StringName:
 	return &"Combat Phase"
 
 
-func _engagement_distance(attacker: UnitInstance, target: UnitInstance) -> float:
-	return attacker.nearest_model_distance_to(target)
+func _chargers_fight_first() -> bool:
+	return false
 
 
-func _pile_in_aim_point(unit: UnitInstance, target_enemy: UnitInstance) -> Vector2:
-	return target_enemy.nearest_model_point_to(unit)
+func _first_activating_player() -> int:
+	return turn_manager.active_player

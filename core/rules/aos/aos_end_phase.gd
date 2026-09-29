@@ -12,4 +12,4 @@ func get_phase_name() -> StringName:
 
 
 func on_enter() -> void:
-	ObjectiveScoring.score_objectives(turn_manager.match_state)
+	ObjectiveScoring.score_objectives(turn_manager.match_state, turn_manager.active_player)

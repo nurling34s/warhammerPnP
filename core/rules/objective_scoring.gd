@@ -13,9 +13,10 @@ extends RefCounted
 ## control_score or FortyKUnitStats.objective_control) of every non-destroyed
 ## unit with at least one model within radius_inches, per owning player. The
 ## strictly-higher total controls it; a tie (including 0-0) leaves it
-## uncontrolled. A controlled objective adds one victory point to its
-## controller on every call.
-static func score_objectives(match_state: MatchState) -> void:
+## uncontrolled. Control is always recomputed, but only `scoring_player` (the
+## player whose turn is ending) is awarded a victory point, and only for
+## objectives they control — the opponent scores at the end of their own turn.
+static func score_objectives(match_state: MatchState, scoring_player: int) -> void:
 	for objective in match_state.objectives:
 		var control_by_player: Dictionary = {}
 		for unit in match_state.units:
@@ -25,8 +26,8 @@ static func score_objectives(match_state: MatchState) -> void:
 			control_by_player[unit.owner_player] = control_by_player.get(unit.owner_player, 0) + contribution
 
 		objective.controlled_by = _determine_controller(control_by_player)
-		if objective.controlled_by >= 0:
-			match_state.add_victory_point(objective.controlled_by)
+		if objective.controlled_by == scoring_player:
+			match_state.add_victory_point(scoring_player)
 
 
 static func _control_contribution(stats: UnitStats) -> int:

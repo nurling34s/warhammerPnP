@@ -1,58 +1,86 @@
-## Shared Charge/Combat/Fight-phase logic: activation order and pile-in.
+## Shared Fight-phase logic: activation order, pile-in and declaring a fight.
 ##
-## Scope note: units are still single points with a model count (see
-## UnitInstance/is_in_engagement_range) — no per-model positions exist yet,
-## so "real" per-model pile-in has no geometric meaning. Pile-in here is a
-## whole-unit nudge of up to PILE_IN_INCHES toward the target, reusing
-## MovementMath so it obeys the same terrain-block rule as normal movement.
-## AoSFightPhase/FortyKFightPhase only override get_phase_name() for now —
-## the two editions' fight-order/pile-in text mostly agrees at this scope.
+## Activation is modelled dynamically rather than as a pre-built queue: the
+## engaged, not-yet-fought units of both players are "pending", and
+## eligible_units() says which of them may activate right now — see
+## _chargers_fight_first() and _first_activating_player() for the per-edition
+## differences (AoSFightPhase / FortyKFightPhase override them).
+##
+## Pile-in is a rigid nudge of the whole unit along the line between the two
+## nearest models, up to PILE_IN_INCHES, until the bases touch
+## (MovementMath.CONTACT_GAP_INCHES, edge-to-edge). It only happens for a unit that is already in engagement
+## range of the target; reuses MovementMath's terrain-block rule.
 class_name FightPhaseBase
 extends GamePhase
 
 const PILE_IN_INCHES: float = 3.0
 
-var _activation_queue: Array[UnitInstance] = []
+## The player whose unit activates next among units without priority.
+var _next_player: int = 0
 
 
 func on_enter() -> void:
-	_activation_queue = _build_activation_order()
+	# Flags of the player who is NOT taking this turn are stale from their own
+	# last turn, and both players fight in every Fight phase.
+	for unit in turn_manager.match_state.units:
+		unit.has_fought = false
+	_next_player = _first_activating_player()
 
 
-## Pops and returns the next unit to activate, or null once the queue is
-## empty (all engaged units have fought this phase).
-func next_to_fight() -> UnitInstance:
-	return _activation_queue.pop_front() if not _activation_queue.is_empty() else null
+## True if the active player's charging units must all fight before anyone else.
+func _chargers_fight_first() -> bool:
+	return false
 
 
-func activation_queue() -> Array[UnitInstance]:
-	return _activation_queue
+## Which player picks the first non-priority unit.
+func _first_activating_player() -> int:
+	return turn_manager.active_player
 
 
-## Nudges `unit` up to PILE_IN_INCHES directly toward `target_enemy`,
-## stopping short if that's closer than the full pile-in distance. Blocked
-## by impassable terrain like any other move.
+## Living, not-yet-fought units in engagement range of an enemy, both players.
+func pending_units() -> Array[UnitInstance]:
+	var pending: Array[UnitInstance] = []
+	for unit in turn_manager.match_state.units:
+		if unit.is_destroyed or unit.has_fought:
+			continue
+		if turn_manager.ruleset.is_in_engagement_range(unit, turn_manager.match_state.units):
+			pending.append(unit)
+	return pending
+
+
+## The pending units that may activate right now.
+func eligible_units() -> Array[UnitInstance]:
+	var pending := pending_units()
+
+	if _chargers_fight_first():
+		var chargers: Array[UnitInstance] = pending.filter(
+			func(u: UnitInstance): return u.has_charged and u.owner_player == turn_manager.active_player
+		)
+		if not chargers.is_empty():
+			return chargers
+
+	var mine: Array[UnitInstance] = pending.filter(func(u: UnitInstance): return u.owner_player == _next_player)
+	return mine if not mine.is_empty() else pending
+
+
+## Nudges `unit` toward `target_enemy` (see class doc). Refused with
+## "not_engaged" unless the unit is already in engagement range of the target.
 func declare_pile_in(unit: UnitInstance, target_enemy: UnitInstance) -> Dictionary:
-	var aim_point: Vector2 = _pile_in_aim_point(unit, target_enemy)
-	var to_target: Vector2 = aim_point - unit.position_inches
-	var distance: float = to_target.length()
-	if distance <= 0.0:
+	var range_inches: float = turn_manager.ruleset.get_engagement_range_inches()
+	if _engagement_distance(unit, target_enemy) > range_inches:
+		return {"ok": false, "reason": "not_engaged"}
+
+	var nearest_distance: float = unit.nearest_edge_distance_to(target_enemy)
+	var to_aim: Vector2 = target_enemy.nearest_model_point_to(unit) - unit.nearest_model_point_to(target_enemy)
+	var move_distance: float = minf(PILE_IN_INCHES, maxf(0.0, nearest_distance - MovementMath.CONTACT_GAP_INCHES))
+	if move_distance <= 0.0 or to_aim.length() <= 0.0:
 		return {"ok": true, "reason": ""}
 
-	var move_distance: float = minf(PILE_IN_INCHES, distance)
-	var destination: Vector2 = unit.position_inches + to_target.normalized() * move_distance
-
+	var destination: Vector2 = unit.position_inches + to_aim.normalized() * move_distance
 	var check := MovementMath.validate_move(unit.position_inches, destination, PILE_IN_INCHES, turn_manager.match_state.terrain)
 	if check.ok:
 		unit.position_inches = destination
 	return check
-
-
-## The point the whole (still-rigid) formation moves toward. Anchor point by
-## default; override where per-model geometry exists (see AoSFightPhase) so
-## the unit aims at the nearest enemy model, not the enemy's anchor.
-func _pile_in_aim_point(_unit: UnitInstance, target_enemy: UnitInstance) -> Vector2:
-	return target_enemy.position_inches
 
 
 func can_fight(attacker: UnitInstance, target: UnitInstance) -> Dictionary:
@@ -61,13 +89,14 @@ func can_fight(attacker: UnitInstance, target: UnitInstance) -> Dictionary:
 	var range_inches: float = turn_manager.ruleset.get_engagement_range_inches()
 	if _engagement_distance(attacker, target) > range_inches:
 		return {"ok": false, "reason": "out_of_engagement_range"}
+	if not eligible_units().has(attacker):
+		return {"ok": false, "reason": "not_this_units_turn_to_fight"}
 	return {"ok": true, "reason": ""}
 
 
-## Distance used for the engagement-range check in can_fight. Anchor-point
-## distance by default; override where per-model geometry exists.
+## Edge-to-edge nearest-model distance, shared by both rulesets.
 func _engagement_distance(attacker: UnitInstance, target: UnitInstance) -> float:
-	return attacker.position_inches.distance_to(target.position_inches)
+	return attacker.nearest_edge_distance_to(target)
 
 
 func declare_fight(attacker: UnitInstance, weapon: WeaponProfile, target: UnitInstance, resolver: AttackResolver) -> Dictionary:
@@ -76,35 +105,6 @@ func declare_fight(attacker: UnitInstance, weapon: WeaponProfile, target: UnitIn
 		return {"ok": false, "reason": check.reason, "outcome": null}
 
 	attacker.has_fought = true
+	_next_player = 1 - attacker.owner_player
 	var outcome: AttackOutcome = resolver.resolve_attack(attacker, weapon, target, {})
 	return {"ok": true, "reason": "", "outcome": outcome}
-
-
-## Charging units fight first (both editions grant the charger priority),
-## then remaining engaged units alternate by player, starting with whoever
-## is not the active player this turn (a placeholder tie-break — real
-## battle-round priority isn't modeled yet).
-func _build_activation_order() -> Array[UnitInstance]:
-	var engaged: Array[UnitInstance] = []
-	for unit in turn_manager.match_state.units:
-		if not unit.is_destroyed and turn_manager.ruleset.is_in_engagement_range(unit, turn_manager.match_state.units):
-			engaged.append(unit)
-
-	var chargers: Array[UnitInstance] = engaged.filter(func(u: UnitInstance): return u.has_charged)
-	var others: Array[UnitInstance] = engaged.filter(func(u: UnitInstance): return not u.has_charged)
-
-	var by_player: Dictionary = {0: [], 1: []}
-	for unit in others:
-		by_player[unit.owner_player].append(unit)
-
-	var turn_order: Array[int] = [1 - turn_manager.active_player, turn_manager.active_player]
-	var interleaved: Array[UnitInstance] = []
-	var i := 0
-	while not by_player[0].is_empty() or not by_player[1].is_empty():
-		var player: int = turn_order[i % 2]
-		var queue: Array = by_player[player]
-		if not queue.is_empty():
-			interleaved.append(queue.pop_front())
-		i += 1
-
-	return chargers + interleaved

@@ -30,27 +30,28 @@ func can_move_to(unit: UnitInstance, destination_inches: Vector2, all_units: Arr
 	if not basic.ok:
 		return basic
 
-	if turn_manager.ruleset.is_in_engagement_range(unit, all_units) and not _allows_leaving_engagement(unit):
+	var engaged_now: bool = turn_manager.ruleset.is_in_engagement_range(unit, all_units)
+	if engaged_now and not _allows_leaving_engagement(unit):
 		return {"ok": false, "reason": "engaged_must_fall_back"}
 
-	if _would_create_new_engagement(unit, destination_inches, all_units):
+	if unit.has_fallen_back and _is_engaged_at(unit, destination_inches, all_units):
+		return {"ok": false, "reason": "fall_back_must_end_outside_engagement"}
+
+	if not engaged_now and _is_engaged_at(unit, destination_inches, all_units):
 		return {"ok": false, "reason": "normal_move_cannot_approach_within_engagement_range"}
 
 	return {"ok": true, "reason": ""}
 
 
-## True if `unit` is not currently engaged but moving it to `destination`
-## would put it in engagement range of an enemy. Checked by temporarily
-## moving the unit and reverting — pure from the caller's perspective.
-func _would_create_new_engagement(unit: UnitInstance, destination: Vector2, all_units: Array) -> bool:
-	if turn_manager.ruleset.is_in_engagement_range(unit, all_units):
-		return false  # already engaged; that case is handled by the "must fall back" check above
-
+## True if `unit` would be in engagement range of an enemy at `destination`.
+## Checked by temporarily moving the unit and reverting — pure from the
+## caller's perspective.
+func _is_engaged_at(unit: UnitInstance, destination: Vector2, all_units: Array) -> bool:
 	var original_position: Vector2 = unit.position_inches
 	unit.position_inches = destination
-	var now_engaged: bool = turn_manager.ruleset.is_in_engagement_range(unit, all_units)
+	var engaged: bool = turn_manager.ruleset.is_in_engagement_range(unit, all_units)
 	unit.position_inches = original_position
-	return now_engaged
+	return engaged
 
 
 ## Validates and, on success, mutates unit.position_inches/has_moved.
@@ -63,11 +64,11 @@ func try_move_unit(unit: UnitInstance, destination_inches: Vector2, all_units: A
 
 
 ## Declares a unit is Falling Back, letting it leave engagement range this
-## Movement Phase. Forfeiting later shooting/charging for the turn is a
-## Phase 3 concern (those phases don't exist yet) — this only unblocks the
-## movement-distance check itself. `dice` is unused here (40k's Fall Back has
-## no self-damage) but accepted so AoSMovementPhase's override — which does
-## roll self-damage — has a compatible signature.
+## Movement Phase (the move must then end outside engagement range). A unit
+## that fell back can neither shoot (ShootingPhaseBase.can_shoot) nor charge
+## (ChargePhaseBase.can_declare_charge) this turn. `dice` is unused here
+## (40k's Fall Back has no self-damage) but accepted so AoSMovementPhase's
+## override — which does roll self-damage — has a compatible signature.
 func declare_fall_back(unit: UnitInstance, _dice: DiceRoller = null) -> void:
 	unit.has_fallen_back = true
 

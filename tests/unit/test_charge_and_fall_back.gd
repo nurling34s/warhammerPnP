@@ -74,10 +74,37 @@ func test_declared_fall_back_lets_engaged_unit_move() -> void:
 	var enemy := _make_unit(1, Vector2(1, 0))
 
 	phase.declare_fall_back(unit, ScriptedDice.new([2]))
-	var result := phase.try_move_unit(unit, Vector2(4, 0), [unit, enemy])
+	var result := phase.try_move_unit(unit, Vector2(5, 0), [unit, enemy])  # 4" from the enemy, outside AoS4's 3"
 
 	assert_true(result.ok)
-	assert_eq(unit.position_inches, Vector2(4, 0))
+	assert_eq(unit.position_inches, Vector2(5, 0))
+
+
+func test_fall_back_move_must_end_outside_engagement_range() -> void:
+	var tm := TurnManager.new(AoSRuleset.new())
+	var phase := AoSMovementPhase.new(tm)
+	var unit := _make_tanky_unit(0, Vector2(0, 0))
+	var enemy := _make_unit(1, Vector2(1, 0))
+	phase.declare_fall_back(unit, ScriptedDice.new([1]))
+
+	var result := phase.try_move_unit(unit, Vector2(3, 0), [unit, enemy])  # only 2" from the enemy
+
+	assert_false(result.ok)
+	assert_eq(result.reason, "fall_back_must_end_outside_engagement")
+	assert_eq(unit.position_inches, Vector2(0, 0))
+
+
+func test_forty_k_fall_back_deals_no_self_damage() -> void:
+	var tm := TurnManager.new(FortyKRuleset.new())
+	var phase := FortyKMovementPhase.new(tm)
+	var stats := FortyKUnitStats.new()
+	stats.health_per_model = 3
+	var unit := UnitInstance.new(stats, 0)
+
+	phase.declare_fall_back(unit)
+
+	assert_true(unit.has_fallen_back)
+	assert_eq(unit.model_wounds_remaining[0], 3)
 
 
 func test_declared_fall_back_deals_d3_self_damage() -> void:

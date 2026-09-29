@@ -40,11 +40,15 @@ func test_pile_in_aims_at_the_enemys_nearest_model_not_its_anchor() -> void:
 	var phase := AoSFightPhase.new(tm)
 
 	var mover := _make_unit(0, Vector2(0, 0), 1)
-	var target := _make_unit(1, Vector2(10, -5), 9)  # anchor off to one side
+	# 3x3 formation at x 2..4, y -4..-2: nearest model (2, -2) is ~2.83" away,
+	# inside AoS4's 3", while the anchor (2, -4) is ~4.47" away.
+	var target := _make_unit(1, Vector2(2, -4), 9)
 
 	var aim: Vector2 = target.nearest_model_point_to(mover)
-	var expected_position: Vector2 = aim.normalized() * minf(3.0, aim.length())
+	assert_eq(aim, Vector2(2, -2))
 
-	phase.declare_pile_in(mover, target)
+	var result := phase.declare_pile_in(mover, target)
 
-	assert_eq(mover.position_inches, expected_position)
+	assert_true(result.ok)
+	assert_almost_eq(mover.nearest_model_distance_to(target), MovementMath.CONTACT_GAP_INCHES, 0.001)
+	assert_true(mover.position_inches.x > 0.0 and mover.position_inches.y < 0.0, "moved toward the nearest model")

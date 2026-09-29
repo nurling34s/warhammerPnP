@@ -87,6 +87,19 @@ func test_already_shot_unit_cannot_shoot_again() -> void:
 	assert_eq(result.reason, "already_shot")
 
 
+func test_unit_that_fell_back_cannot_shoot() -> void:
+	var tm := TurnManager.new(AoSRuleset.new())
+	var phase := AoSShootingPhase.new(tm)
+	var attacker := _make_unit(0, Vector2(0, 0))
+	attacker.has_fallen_back = true
+	var target := _make_unit(1, Vector2(5, 0))
+
+	var result := phase.can_shoot(attacker, _make_weapon(12.0), target, [])
+
+	assert_false(result.ok)
+	assert_eq(result.reason, "cannot_shoot_after_falling_back")
+
+
 func test_declare_shoot_marks_has_shot_and_resolves_attack() -> void:
 	var ruleset := AoSRuleset.new()
 	var tm := TurnManager.new(ruleset)

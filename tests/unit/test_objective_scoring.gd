@@ -34,7 +34,7 @@ func test_lone_unit_within_radius_controls_and_scores_a_point() -> void:
 	var objective := _make_objective(Vector2(0, 0))
 	match_state.objectives.append(objective)
 
-	ObjectiveScoring.score_objectives(match_state)
+	ObjectiveScoring.score_objectives(match_state, 0)
 
 	assert_eq(objective.controlled_by, 0)
 	assert_eq(match_state.victory_points[0], 1)
@@ -48,7 +48,7 @@ func test_unit_outside_radius_does_not_control() -> void:
 	var objective := _make_objective(Vector2(0, 0))
 	match_state.objectives.append(objective)
 
-	ObjectiveScoring.score_objectives(match_state)
+	ObjectiveScoring.score_objectives(match_state, 0)
 
 	assert_eq(objective.controlled_by, -1)
 	assert_eq(match_state.victory_points[0], 0)
@@ -63,7 +63,7 @@ func test_higher_control_score_wins_contested_objective() -> void:
 	var objective := _make_objective(Vector2(0, 0))
 	match_state.objectives.append(objective)
 
-	ObjectiveScoring.score_objectives(match_state)
+	ObjectiveScoring.score_objectives(match_state, 1)
 
 	assert_eq(objective.controlled_by, 1)
 	assert_eq(match_state.victory_points[1], 1)
@@ -79,7 +79,7 @@ func test_tied_control_score_leaves_objective_uncontrolled() -> void:
 	var objective := _make_objective(Vector2(0, 0))
 	match_state.objectives.append(objective)
 
-	ObjectiveScoring.score_objectives(match_state)
+	ObjectiveScoring.score_objectives(match_state, 0)
 
 	assert_eq(objective.controlled_by, -1)
 	assert_eq(match_state.victory_points[0], 0)
@@ -94,7 +94,7 @@ func test_destroyed_unit_does_not_contribute_control() -> void:
 	var objective := _make_objective(Vector2(0, 0))
 	match_state.objectives.append(objective)
 
-	ObjectiveScoring.score_objectives(match_state)
+	ObjectiveScoring.score_objectives(match_state, 0)
 
 	assert_eq(objective.controlled_by, -1)
 
@@ -106,10 +106,27 @@ func test_scoring_accumulates_across_multiple_calls() -> void:
 	var objective := _make_objective(Vector2(0, 0))
 	match_state.objectives.append(objective)
 
-	ObjectiveScoring.score_objectives(match_state)
-	ObjectiveScoring.score_objectives(match_state)
+	ObjectiveScoring.score_objectives(match_state, 0)
+	ObjectiveScoring.score_objectives(match_state, 0)
 
 	assert_eq(match_state.victory_points[0], 2)
+
+
+func test_only_the_active_player_scores_at_the_end_of_their_turn() -> void:
+	var match_state := MatchState.new()
+	match_state.units.append(_make_unit(0, Vector2(1, 0)))
+	var objective := _make_objective(Vector2(0, 0))
+	match_state.objectives.append(objective)
+
+	ObjectiveScoring.score_objectives(match_state, 1)  # player 2's turn ends; player 1 holds the objective
+
+	assert_eq(objective.controlled_by, 0, "control is still tracked for the display")
+	assert_eq(match_state.victory_points[0], 0, "but the opponent scores nothing on the other player's turn")
+	assert_eq(match_state.victory_points[1], 0)
+
+	ObjectiveScoring.score_objectives(match_state, 0)  # player 1's own turn ends
+
+	assert_eq(match_state.victory_points[0], 1)
 
 
 func test_forty_k_unit_controls_via_objective_control_stat() -> void:
@@ -119,7 +136,7 @@ func test_forty_k_unit_controls_via_objective_control_stat() -> void:
 	var objective := _make_objective(Vector2(0, 0))
 	match_state.objectives.append(objective)
 
-	ObjectiveScoring.score_objectives(match_state)
+	ObjectiveScoring.score_objectives(match_state, 0)
 
 	assert_eq(objective.controlled_by, 0)
 	assert_eq(match_state.victory_points[0], 1)
@@ -134,7 +151,7 @@ func test_aos_and_forty_k_units_can_contest_the_same_objective() -> void:
 	var objective := _make_objective(Vector2(0, 0))
 	match_state.objectives.append(objective)
 
-	ObjectiveScoring.score_objectives(match_state)
+	ObjectiveScoring.score_objectives(match_state, 1)
 
 	assert_eq(objective.controlled_by, 1)
 	assert_eq(match_state.victory_points[1], 1)

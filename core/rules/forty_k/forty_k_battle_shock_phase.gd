@@ -16,7 +16,7 @@ func on_enter() -> void:
 	var dice := DiceRoller.new()
 	for unit in turn_manager.match_state.units_for_player(turn_manager.active_player):
 		resolve_battleshock_for_unit(unit, dice)
-	ObjectiveScoring.score_objectives(turn_manager.match_state)
+	ObjectiveScoring.score_objectives(turn_manager.match_state, turn_manager.active_player)
 
 
 func resolve_battleshock_for_unit(unit: UnitInstance, dice: DiceRoller) -> void:

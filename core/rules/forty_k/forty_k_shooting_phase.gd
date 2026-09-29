@@ -6,7 +6,7 @@ extends ShootingPhaseBase
 
 
 func _range_distance(attacker: UnitInstance, target: UnitInstance) -> float:
-	return attacker.nearest_model_distance_to(target)
+	return attacker.nearest_edge_distance_to(target)
 
 
 func _los_endpoints(attacker: UnitInstance, target: UnitInstance) -> Dictionary:

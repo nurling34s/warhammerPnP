@@ -17,5 +17,7 @@ extends Resource
 @export var save: int = 4                        ## e.g. 4 means "4+"
 @export var points_cost: int = 0
 @export var weapons: Array[WeaponProfile] = []
-@export var base_size_mm: float = 32.0
+## Base diameter. 0 (the default) means "a point" — unit tests rely on that so
+## distances stay plain centre distances; real unit data sets it explicitly.
+@export var base_size_mm: float = 0.0
 @export var sprite_texture: Texture2D            ## top-down token art placeholder

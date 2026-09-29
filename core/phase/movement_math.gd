@@ -4,6 +4,11 @@
 class_name MovementMath
 extends RefCounted
 
+## Charges and pile-ins stop with the nearest bases touching (edge-to-edge gap
+## of 0, see UnitInstance.nearest_edge_distance_to) — right up against the
+## target without overlapping it.
+const CONTACT_GAP_INCHES: float = 0.0
+
 
 ## Returns {"ok": bool, "reason": String}. Does not check engagement range —
 ## that's ruleset-specific and stays in the caller (MovementPhaseBase/

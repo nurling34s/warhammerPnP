@@ -91,6 +91,18 @@ func nearest_model_distance_to(other: UnitInstance) -> float:
 	return best
 
 
+## Radius of one model's base, in inches.
+func model_radius_inches() -> float:
+	return stats.base_size_mm / 2.0 / 25.4
+
+
+## Gap between the nearest bases (edge to edge, 0 when they touch) — what the
+## rulebooks' weapon range and engagement range actually measure, as opposed
+## to nearest_model_distance_to()'s centre-to-centre distance.
+func nearest_edge_distance_to(other: UnitInstance) -> float:
+	return maxf(0.0, nearest_model_distance_to(other) - model_radius_inches() - other.model_radius_inches())
+
+
 ## The point (one of this unit's model_positions) closest to any of
 ## `other`'s models — used as the "from"/"to" endpoint for per-model LoS and
 ## as the pile-in aim point.

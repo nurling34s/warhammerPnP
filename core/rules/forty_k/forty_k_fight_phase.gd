@@ -1,7 +1,7 @@
-## 40k 11th ed Fight Phase. Uses real nearest-model geometry for
-## engagement-range and pile-in aim (see UnitInstance.model_positions) —
-## ported from AoSFightPhase in Phase 5f now that per-model positions are
-## proven out.
+## 40k 11th ed Fight Phase: units that charged fight first, then players
+## alternate starting with the player whose turn it is NOT (placeholder
+## tie-break carried over from the original queue — verify against the
+## current core rulebook).
 class_name FortyKFightPhase
 extends FightPhaseBase
 
@@ -10,9 +10,9 @@ func get_phase_name() -> StringName:
 	return &"Fight Phase"
 
 
-func _engagement_distance(attacker: UnitInstance, target: UnitInstance) -> float:
-	return attacker.nearest_model_distance_to(target)
+func _chargers_fight_first() -> bool:
+	return true
 
 
-func _pile_in_aim_point(unit: UnitInstance, target_enemy: UnitInstance) -> Vector2:
-	return target_enemy.nearest_model_point_to(unit)
+func _first_activating_player() -> int:
+	return 1 - turn_manager.active_player
